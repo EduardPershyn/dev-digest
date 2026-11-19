@@ -1,22 +1,47 @@
 # Insights — cross-module
 
-Accumulated findings that span more than one package. Module-specific lessons go in
-`<module>/INSIGHTS.md`. Newest first.
+Findings that span more than one package, or concern `scripts/`, `docs/`, `.github/` or
+`docker-compose.yml`. Module-specific lessons go in `<module>/INSIGHTS.md`.
 
-**Entry format:** `### YYYY-MM-DD — short title`, then **Symptom** → **Cause** → **Rule**.
-When a rule keeps biting, promote it to one line in the relevant `CLAUDE.md` (Gotchas)
-and mark the entry `(promoted)`.
+Written by the `engineering-insights` skill (`.claude/skills/engineering-insights/`).
+**Append-only:** add one bullet to the end of a section; never reword or delete. Pruning is
+a human review step. Entry format:
 
----
+```
+- **YYYY-MM-DD** — <specific fact and what to do>. Why: <cause>. Ref: `path:line`
+```
 
-### 2026-11-19 — The two `@devdigest/shared` copies have diverged (promoted)
-- **Symptom:** `diff -rq client/src/vendor/shared server/src/vendor/shared` reports
-  differences in `adapters.ts`, `contracts/eval-ci.ts`, `knowledge.ts`, `productionize.ts`, `trace.ts`.
-- **Cause:** contracts are vendored per package (no workspace); edits landed in one copy only.
-- **Rule:** a contract change touches both copies; reviewer-core reads the server copy.
+## What Works
 
-### 2026-11-19 — "Reset everything" advice conflicts with real data (promoted)
-- **Symptom:** README Troubleshooting suggests `docker compose down -v`; `e2e/README.md`
-  warns that `-v` deletes the `devdigest_pgdata` volume with every imported repo.
-- **Cause:** the reset advice predates people using the studio on real repos.
-- **Rule:** to get a clean DB for tests use `./scripts/e2e.sh` (isolated Postgres), not `down -v`.
+_None yet._
+
+## What Doesn't Work
+
+- **2026-11-19** — Don't reset with `docker compose down -v` for a clean test DB; it deletes
+  the `devdigest_pgdata` volume with every imported repo. Use `./scripts/e2e.sh` (isolated
+  Postgres). Why: README's reset advice predates people running the studio on real repos.
+  Ref: `README.md` (Troubleshooting), `e2e/README.md` (promoted)
+
+## Codebase Patterns
+
+- **2026-11-19** — The two `@devdigest/shared` copies have diverged (`adapters.ts`,
+  `contracts/eval-ci.ts`, `knowledge.ts`, `productionize.ts`, `trace.ts`); a contract change
+  touches both, and reviewer-core reads the server copy. Why: contracts are vendored per
+  package (no workspace), and edits landed in one copy only.
+  Ref: `diff -rq client/src/vendor/shared server/src/vendor/shared` (promoted)
+
+## Tool & Library Notes
+
+_None yet._
+
+## Recurring Errors & Fixes
+
+_None yet._
+
+## Session Notes
+
+_None yet._
+
+## Open Questions
+
+_None yet._

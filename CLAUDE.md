@@ -36,4 +36,5 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.9 · Fastify 5 · Drizzle 0.45 · Postg
 - Starting a milestone feature → `specs/README.md`, then the module's `specs/`
 - Before working in a module → that module's `INSIGHTS.md` (here: cross-module lessons)
 - Editing the built-in reviewer prompts → `docs/agent-prompts/README.md`
-- Something non-obvious bit you → add an entry to the nearest `INSIGHTS.md`
+- You confirmed something non-obvious, or are wrapping up a task → `engineering-insights`
+  skill (`.claude/skills/engineering-insights/`): append-only entry in the nearest `INSIGHTS.md`
