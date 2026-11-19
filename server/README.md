@@ -132,6 +132,21 @@ What the reviewer actually sends to the model is assembled in
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.
 
+## Run cost (M1)
+
+Cost is attributed from the review's own LLM responses — never an extra call:
+OpenRouter's reported `usage.cost`, else the `PriceBook` estimate (live
+OpenRouter prices → static `adapters/llm/pricing.ts`). The executor persists it as
+`agent_runs.cost_usd` and `run_traces.trace.stats.cost_usd`; it is `null` when
+unknown (failed/cancelled runs, unpriced models, runs from before M1), and the UI
+renders `null` as `—`.
+
+- `GET /pulls/:id/runs` → `cost_usd` per run.
+- `GET /runs/:id/trace` → `stats.cost_usd` (absent on legacy traces).
+- `GET /repos/:id/pulls` → `cost_usd` = sum over the PR's **latest review batch**
+  (all runs from one `POST /pulls/:id/review` share `agent_runs.batch_id`).
+  Spec: `../specs/M1-cost-badge.md`.
+
 ## Testing
 
 The suite splits by filename — `*.it.test.ts` is DB-backed, everything else is

@@ -14,7 +14,7 @@ remains as the historical record.
 ## Index
 | Spec | Status | Packages |
 |------|--------|----------|
-| _none yet_ | | |
+| [M1-cost-badge](M1-cost-badge.md) | done | server, client |
 
 ## Template
 ```markdown

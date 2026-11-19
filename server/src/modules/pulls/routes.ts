@@ -129,6 +129,29 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
+    // Cost column: total USD of each PR's LATEST review batch (the runs created
+    // by one "Run review" click share a batch_id). Runs without cost data
+    // (failed/cancelled/unpriced) are skipped; null when the batch has none.
+    const costByPr = new Map<string, number | null>();
+    if (prIds.length > 0) {
+      const runRows = await container.db
+        .select({ prId: t.agentRuns.prId, batchId: t.agentRuns.batchId, costUsd: t.agentRuns.costUsd })
+        .from(t.agentRuns)
+        .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.prId, prIds)))
+        .orderBy(desc(t.agentRuns.ranAt));
+      const latestBatch = new Map<string, string>();
+      // Newest-first → the first batch_id seen per PR is its latest batch.
+      for (const run of runRows) {
+        if (run.prId && run.batchId && !latestBatch.has(run.prId)) latestBatch.set(run.prId, run.batchId);
+      }
+      for (const run of runRows) {
+        if (!run.prId || run.batchId == null || latestBatch.get(run.prId) !== run.batchId) continue;
+        const prev = costByPr.get(run.prId) ?? null;
+        if (run.costUsd != null) costByPr.set(run.prId, (prev ?? 0) + run.costUsd);
+        else if (!costByPr.has(run.prId)) costByPr.set(run.prId, null);
+      }
+    }
+
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
@@ -153,6 +176,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: costByPr.get(r.id) ?? null,
       };
     });
   });

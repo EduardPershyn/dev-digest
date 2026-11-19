@@ -21,7 +21,11 @@ _None yet._
 
 ## Codebase Patterns
 
-_None yet._
+- **2026-11-19** — Component tests pass `NextIntlClientProvider` ONLY the namespaces they
+  import (e.g. `messages={{ prReview: messages }}`). A shared component calling
+  `useTranslations("<other ns>")` (like `RunCostBadge` → `common`) needs that namespace added
+  to every consumer test too. Why: there is no global i18n test wrapper; messages are imported
+  per test file. Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.test.tsx`
 
 ## Tool & Library Notes
 

@@ -45,6 +45,20 @@ describe("A5 Run Trace drawer (smoke)", () => {
     expect(screen.getByText("Stats")).toBeInTheDocument();
     expect(screen.getByText("2/2 passed")).toBeInTheDocument();
     expect(screen.getByText("Tool calls")).toBeInTheDocument();
+    // M1: Cost tile beside Duration/Tokens/Findings; this trace predates cost
+    // tracking (no stats.cost_usd) → "—".
+    expect(screen.getByText("COST")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("shows the run cost when the trace has one", () => {
+    TRACE.stats.cost_usd = 0.06;
+    try {
+      renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+      expect(screen.getByText("$0.060")).toBeInTheDocument();
+    } finally {
+      delete TRACE.stats.cost_usd;
+    }
   });
 
   it("switches to the live log tab", () => {

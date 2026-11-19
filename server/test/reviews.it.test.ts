@@ -209,7 +209,51 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // M1 cost badge: the engine's cost is persisted on the row, the trace, and
+    // the run-history response (MockLLMProvider reports 0.001 USD per call).
+    expect(run!.costUsd).toBeGreaterThan(0);
+    expect(run!.batchId).not.toBeNull();
+    expect(trace.stats.cost_usd).toBeCloseTo(run!.costUsd!);
+    const history = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(history[0].cost_usd).toBeCloseTo(run!.costUsd!);
+
     await app.close();
+  });
+
+  it('cost: PR list totals the LATEST batch only; failed runs record null cost', async () => {
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const listCost = async (app: Awaited<ReturnType<typeof appWith>>) => {
+      const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return pulls.find((p: { id: string }) => p.id === pr.id).cost_usd as number | null;
+    };
+
+    // Batch 1 — a successful run: the list shows that run's cost.
+    const okApp = await appWith(REVIEW_FIXTURE);
+    expect(await listCost(okApp)).toBeNull(); // never reviewed
+    const agent = (
+      await okApp.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Cost', provider: 'openai', model: 'gpt-4.1', system_prompt: 'c' },
+      })
+    ).json();
+    await okApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const [first] = await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    expect(first!.costUsd).toBeGreaterThan(0);
+    expect(await listCost(okApp)).toBeCloseTo(first!.costUsd!);
+    await okApp.close();
+
+    // Batch 2 — the model output fails the schema → the run fails with null
+    // cost, and as the latest batch it has no cost data → the list shows null.
+    const badApp = await appWith({});
+    await badApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const runs = await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
+    const failed = runs.find((r) => r.id !== first!.id)!;
+    expect(failed.status).toBe('failed');
+    expect(failed.costUsd).toBeNull();
+    expect(failed.batchId).not.toBe(first!.batchId);
+    expect(await listCost(badApp)).toBeNull();
+    await badApp.close();
   });
 
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
@@ -297,6 +341,10 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     ).json();
     // seed has 2 enabled agents; we may have created more above in this PR's ws.
     expect(body.runs.length).toBeGreaterThanOrEqual(2);
+    // One POST = one review batch: every run shares a single batch_id.
+    const rows = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(new Set(rows.map((r) => r.batchId)).size).toBe(1);
+    expect(rows[0]!.batchId).not.toBeNull();
     await app.close();
   });
 });

@@ -40,7 +40,11 @@ _None yet._
 
 ## Session Notes
 
-_None yet._
+- **2026-11-19** — M1 run cost badge shipped (spec `specs/M1-cost-badge.md`): the engine already
+  returned `outcome.costUsd`, but `run-executor.ts` dropped it. It is now persisted as
+  `agent_runs.cost_usd` + `trace.stats.cost_usd`, and shown in the PR-list Cost column (latest
+  batch), on timeline rows and in the drawer Cost tile via `client/src/components/run-cost-badge`.
+  Failed/cancelled runs stay `null` (partial spend is an open question in the spec).
 
 ## Open Questions
 
