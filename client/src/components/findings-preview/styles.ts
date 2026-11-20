@@ -1,9 +1,8 @@
 import type { CSSProperties } from "react";
 import { POPOVER_WIDTH } from "./helpers";
 
-/** Co-located styles for FindingsCell / FindingsPopover. Colours: tokens + SEV only. */
+/** Styles for FindingsPreview / FindingsPopover. Colours: tokens + SEV only. */
 export const s = {
-  muted: { color: "var(--text-muted)", fontSize: 13 } satisfies CSSProperties,
   trigger: {
     display: "inline-flex",
     alignItems: "center",
@@ -33,7 +32,6 @@ export const s = {
     borderRadius: 10,
     boxShadow: "var(--shadow-modal)",
     padding: "10px 0 6px",
-    cursor: "pointer",
   } satisfies CSSProperties,
   header: {
     display: "flex",

@@ -1,9 +1,9 @@
-/* FindingsPopover — the hover/focus card for the PR-list FINDINGS cell: total,
-   a severity-sorted preview of the open findings, and "+N more". */
+/* FindingsPopover — the hover/focus card behind a findings preview (PR-list
+   FINDINGS cell, Timeline run rows): a title, a severity-sorted preview of the
+   findings, and "+N more". Wording comes from the caller. */
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
 import { Icon, SeverityBadge, CategoryTag, ConfidenceNum } from "@devdigest/ui";
 import type { PrFindingsSummary } from "@devdigest/shared";
 import type { PopoverPosition } from "./helpers";
@@ -15,28 +15,36 @@ export function FindingsPopover({
   id,
   findings,
   position,
+  title,
+  moreLabel,
+  clickThrough = false,
   onMouseEnter,
   onMouseLeave,
 }: {
   id: string;
   findings: PrFindingsSummary;
   position: PopoverPosition;
+  /** Header text, e.g. "6 findings" / "2 findings in this run". */
+  title: string;
+  /** Footer for the findings not previewed; only called when `hidden > 0`. */
+  moreLabel: (hidden: number) => string;
+  /** Clicks bubble to a clickable parent (the PR-list row) → pointer cursor. */
+  clickThrough?: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) {
-  const t = useTranslations("prReview.list.findings");
   const hidden = findings.total - findings.top.length;
   return (
     <div
       id={id}
       role="tooltip"
-      style={{ ...s.popover, ...position }}
+      style={{ ...s.popover, cursor: clickThrough ? "pointer" : "default", ...position }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
       <div style={s.header}>
         <Icon.Info size={13} />
-        {t("header", { count: findings.total })}
+        {title}
       </div>
       {findings.top.map((f) => (
         <div key={f.id} style={s.item}>
@@ -60,7 +68,7 @@ export function FindingsPopover({
           {f.rationale && <div style={s.rationale}>{f.rationale}</div>}
         </div>
       ))}
-      {hidden > 0 && <div style={s.more}>{t("more", { count: hidden })}</div>}
+      {hidden > 0 && <div style={s.more}>{moreLabel(hidden)}</div>}
     </div>
   );
 }

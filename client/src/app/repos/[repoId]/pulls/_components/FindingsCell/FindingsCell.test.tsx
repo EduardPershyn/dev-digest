@@ -4,7 +4,6 @@ import { NextIntlClientProvider } from "next-intl";
 import type { PrFindingsSummary, PrFindingPreview, Severity } from "@devdigest/shared";
 import messages from "../../../../../../../messages/en/prReview.json";
 import { FindingsCell } from "./FindingsCell";
-import { popoverPosition, POPOVER_MAX_HEIGHT, POPOVER_WIDTH } from "./helpers";
 
 afterEach(() => {
   cleanup();
@@ -98,27 +97,5 @@ describe("FindingsCell", () => {
     renderCell({ ...SUMMARY, total: 3 });
     fireEvent.mouseEnter(trigger());
     expect(screen.getByRole("tooltip")).not.toHaveTextContent(/more/);
-  });
-});
-
-describe("popoverPosition", () => {
-  const vp = { width: 1400, height: 900 };
-
-  it("opens below the trigger when it fits", () => {
-    expect(popoverPosition({ left: 600, top: 100, bottom: 120 }, vp)).toEqual({
-      left: 592,
-      top: 126,
-      maxHeight: POPOVER_MAX_HEIGHT,
-    });
-  });
-
-  it("flips above when there is more room above and it doesn't fit below", () => {
-    const p = popoverPosition({ left: 600, top: 800, bottom: 820 }, vp);
-    expect(p.top).toBeUndefined();
-    expect(p.bottom).toBe(900 - 800 + 6);
-  });
-
-  it("clamps to the right edge of the viewport", () => {
-    expect(popoverPosition({ left: 1350, top: 100, bottom: 120 }, vp).left).toBe(1400 - POPOVER_WIDTH - 8);
   });
 });

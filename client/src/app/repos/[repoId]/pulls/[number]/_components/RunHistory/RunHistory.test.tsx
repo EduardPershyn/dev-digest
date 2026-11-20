@@ -5,9 +5,9 @@
  * and shows the review score ring.
  */
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { RunSummary } from "@devdigest/shared";
+import type { FindingRecord, RunSummary, Severity } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
 import common from "../../../../../../../../messages/en/common.json";
 import { RunHistory } from "./RunHistory";
@@ -36,10 +36,10 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(runs: RunSummary[], findingsByRun?: Record<string, FindingRecord[]>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages, common }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+      <RunHistory runs={runs} onOpenTrace={() => {}} findingsByRun={findingsByRun} />
     </NextIntlClientProvider>,
   );
 }
@@ -91,5 +91,81 @@ describe("RunHistory — run cost (M1)", () => {
   it("a running run shows no cost yet", () => {
     renderRuns([run({ status: "running" })]);
     expect(screen.queryByText("—")).not.toBeInTheDocument();
+  });
+});
+
+function finding(id: string, severity: Severity, o: Partial<FindingRecord> = {}): FindingRecord {
+  return {
+    id,
+    severity,
+    category: "security",
+    title: `Title ${id}`,
+    file: "src/a.ts",
+    start_line: 7,
+    end_line: 7,
+    rationale: "why",
+    confidence: 0.9,
+    review_id: "rv1",
+    accepted_at: null,
+    dismissed_at: null,
+    ...o,
+  };
+}
+
+const runTrigger = () => screen.getByLabelText(/^Findings in this run:/);
+
+describe("RunHistory — findings preview (Part 2)", () => {
+  it("a done run with a loaded review shows icon counts per non-zero level + the blockers suffix", () => {
+    renderRuns([run({ findings_count: 3, blockers: 2, score: 10 })], {
+      "run-1": [
+        finding("c1", "CRITICAL"),
+        // Dismissed findings still count — the Timeline matches the accordion header.
+        finding("c2", "CRITICAL", { dismissed_at: "2026-11-20T00:00:00Z" }),
+        finding("w1", "WARNING"),
+      ],
+    });
+    expect(runTrigger()).toHaveAccessibleName(
+      "Findings in this run: 2 critical, 1 warning. Focus or hover for details.",
+    );
+    expect(runTrigger()).toHaveTextContent(/^21$/); // "2" + "1"; zero SUGGESTION omitted
+    expect(screen.queryByText(/finding\(s\)/)).not.toBeInTheDocument();
+    expect(screen.getByText(/· 2 blockers/)).toBeInTheDocument();
+  });
+
+  it("hover opens the popover titled 'N findings in this run' with '+N more'", () => {
+    const list = ["c1", "c2", "w1", "w2", "w3", "s1"].map((id) =>
+      finding(id, id.startsWith("c") ? "CRITICAL" : id.startsWith("w") ? "WARNING" : "SUGGESTION"),
+    );
+    renderRuns([run({ findings_count: 6, blockers: 2 })], { "run-1": list });
+    fireEvent.mouseEnter(runTrigger());
+    const pop = screen.getByRole("tooltip");
+    expect(pop).toHaveTextContent("6 findings in this run");
+    expect(pop).toHaveTextContent("Title c1");
+    expect(pop).not.toHaveTextContent("Title s1"); // 6th by severity → not previewed
+    expect(pop).toHaveTextContent("+1 more — see the run below");
+    fireEvent.keyDown(runTrigger(), { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("the singular title reads '1 finding in this run'", () => {
+    renderRuns([run({ findings_count: 1 })], { "run-1": [finding("w1", "WARNING")] });
+    fireEvent.focus(runTrigger());
+    expect(screen.getByRole("tooltip")).toHaveTextContent("1 finding in this run");
+  });
+
+  it("a run without a review entry (or an empty one) keeps the old 'N finding(s)' text", () => {
+    renderRuns([run({ findings_count: 3, blockers: 1 })], { other: [finding("w1", "WARNING")] });
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Findings in this run:/)).not.toBeInTheDocument();
+    cleanup();
+    renderRuns([run({ findings_count: 0 })], { "run-1": [] });
+    expect(screen.getByText("0 finding(s)")).toBeInTheDocument();
+  });
+
+  it("a failed run renders as before even if a review is mapped to it", () => {
+    renderRuns([run({ status: "failed", error: "boom" })], { "run-1": [finding("w1", "WARNING")] });
+    expect(screen.getByText("error")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Findings in this run:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/finding/)).not.toBeInTheDocument();
   });
 });

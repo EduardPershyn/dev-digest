@@ -32,6 +32,14 @@ _None yet._
   portal still bubble to `PRRow`'s `onClick` (React events follow the component tree, not
   the DOM) and open the PR — intended here, `stopPropagation` if not. Ref:
   `client/src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.tsx`
+- **2026-11-20** — A findings hover preview (`⊘2 ⚠1` + popover) is
+  `@/components/findings-preview` → `<FindingsPreview>`; it owns the portal, hover grace,
+  focus/Escape and scroll-close. Callers pass the summary and all wording (`title`,
+  `moreLabel`, `ariaLabel`, `levelLabel`) and `clickThrough` only where clicks should reach a
+  clickable row. The two surfaces count differently on purpose: PR list = OPEN findings of
+  each agent's latest review (server), Timeline row = ALL of that run's findings incl.
+  dismissed (client `summarizeFindings`), so it equals the run's accordion header. Ref:
+  `client/src/components/findings-preview/FindingsPreview.tsx`
 
 ## Tool & Library Notes
 
@@ -39,6 +47,11 @@ _None yet._
   found`: the positional filter mangles the `[repoId]`/`[number]` brackets. Filter by a plain
   name fragment instead (`pnpm exec vitest run FindingsPanel`). Why: Vitest treats the
   argument as a pattern, not a literal path. Ref: `client/vitest.config.ts`
+- **2026-11-20** — After `git mv` of components while `next dev` is running, fresh page
+  loads still log `Failed to read source code from …/<old path>` console errors for the old
+  paths, yet the page renders and works (seen in headless Chrome on the PR page, Agent runs
+  tab). Don't chase them when checking a refactor; judge by the rendered page.
+  Whether a dev-server restart clears them was not verified. Ref: `client/src/components/findings-preview/`
 
 ## Recurring Errors & Fixes
 
@@ -66,6 +79,13 @@ _None yet._
   defaults to `?status=needs_review`, so reviewed PRs are hidden: open
   `/repos/<id>/pulls?status=all` (or click "All") when checking a reviewed PR. Ref:
   `client/src/app/repos/[repoId]/pulls/_components/FindingsCell/`
+- **2026-11-20** — Timeline run rows got the findings preview (`specs/pr-list-findings.md`
+  Part 2): `FindingsTab` builds `findingsByRun` from `usePrReviews` (`review.run_id` join),
+  `RunHistory` renders `<FindingsPreview>` for done runs with ≥1 finding, otherwise the old
+  `N finding(s)` text. `FindingsCell` became a thin wrapper over the extracted
+  `components/findings-preview/`. 80/80 tests, typecheck clean, headless-Chrome check on
+  `hack0xield/trading#1` matched the spec's expected rows. Ref:
+  `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.tsx`
 
 ## Open Questions
 

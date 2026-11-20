@@ -3,8 +3,9 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import type { RunSummary, PrCommit, FindingRecord } from "@devdigest/shared";
 import { RunCostBadge } from "@/components/run-cost-badge";
+import { FindingsPreview, summarizeFindings } from "@/components/findings-preview";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -16,6 +17,11 @@ import { RunCostBadge } from "@/components/run-cost-badge";
  * run that found blockers reads "rejected" (red), never a green "done". Outcome
  * is derived from the denormalized blocker/finding counts on the run row, so it
  * matches the CI gate (deterministic) rather than the model's verdict.
+ *
+ * When the run's review is known (`findingsByRun`), the "N finding(s)" text
+ * becomes SEV icon + count per level with a hover/focus preview — ALL of the
+ * run's findings, dismissed included, so it agrees with the run's accordion
+ * header (specs/pr-list-findings.md, Part 2).
  */
 
 type Outcome = { key: string; color: string; bg: string; icon: IconName };
@@ -91,6 +97,7 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  findingsByRun,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -99,6 +106,8 @@ export function RunHistory({
   /** Jump to this run's inline review accordion below (clicking the agent name). */
   onGoToReview?: (runId: string) => void;
   onDelete?: (runId: string) => void;
+  /** run_id → that run's review findings (from `usePrReviews`). Missing → plain count text. */
+  findingsByRun?: Record<string, FindingRecord[]>;
 }) {
   const t = useTranslations("prReview");
   if (runs.length === 0 && commits.length === 0) return null;
@@ -191,7 +200,7 @@ export function RunHistory({
               )}
               {settled && (
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                  <RunFindings list={findingsByRun?.[r.run_id]} fallbackCount={r.findings_count ?? 0} />
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}
@@ -232,5 +241,24 @@ export function RunHistory({
         );
       })}
     </div>
+  );
+}
+
+/** A settled run's findings: icon counts + preview when its review is loaded and
+ *  non-empty, otherwise today's "N finding(s)" text from the run row. */
+function RunFindings({ list, fallbackCount }: { list: FindingRecord[] | undefined; fallbackCount: number }) {
+  const t = useTranslations("prReview");
+  const summary = React.useMemo(() => (list && list.length > 0 ? summarizeFindings(list) : null), [list]);
+  if (!summary || summary.total === 0) return <>{t("runStatus.findings", { count: fallbackCount })}</>;
+  return (
+    <span style={{ display: "inline-flex", verticalAlign: "middle" }}>
+      <FindingsPreview
+        summary={summary}
+        title={t("timeline.findingsInRun", { count: summary.total })}
+        moreLabel={(count) => t("timeline.findingsMore", { count })}
+        ariaLabel={(levels) => t("timeline.findingsLabel", { summary: levels })}
+        levelLabel={(count, label) => t("list.findings.levelCount", { count, label })}
+      />
+    </span>
   );
 }
