@@ -45,6 +45,11 @@ describe("RunCostBadge", () => {
     expect(screen.getByText("$0.014 · 15k→1.2k")).toBeInTheDocument();
   });
 
+  it("a custom tooltip replaces the per-run one when the cost is known", () => {
+    renderBadge(<RunCostBadge costUsd={0.03} tooltip="Total cost of all review runs on this PR" />);
+    expect(screen.getByText("$0.030")).toHaveAttribute("title", "Total cost of all review runs on this PR");
+  });
+
   it("no cost data → '—' only, with no tokens and a 'No cost data' tooltip", () => {
     renderBadge(<RunCostBadge variant="full" costUsd={null} tokensIn={0} tokensOut={0} />);
     const el = screen.getByText("—");

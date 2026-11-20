@@ -44,7 +44,12 @@ _None yet._
   returned `outcome.costUsd`, but `run-executor.ts` dropped it. It is now persisted as
   `agent_runs.cost_usd` + `trace.stats.cost_usd`, and shown in the PR-list Cost column (latest
   batch), on timeline rows and in the drawer Cost tile via `client/src/components/run-cost-badge`.
-  Failed/cancelled runs stay `null` (partial spend is an open question in the spec).
+  Failed/cancelled runs stay `null` (partial spend is an open question in the spec). (superseded 2026-11-20)
+- **2026-11-20** — PR-list Cost column changed from "latest review batch" to "sum of ALL review
+  runs of the PR" (spec revised first, then `pulls/routes.ts` → SQL `GROUP BY pr_id`). Failed
+  runs add nothing and no longer blank the column. The list badge has its own tooltip
+  (`RunCostBadge` `tooltip` prop, `prReview.json` `list.costTooltip`). Timeline and drawer
+  costs stay per run.
 
 ## Open Questions
 

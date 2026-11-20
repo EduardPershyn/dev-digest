@@ -220,14 +220,14 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
-  it('cost: PR list totals the LATEST batch only; failed runs record null cost', async () => {
+  it('cost: PR list totals ALL runs; failed runs record null cost and add nothing', async () => {
     const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
     const listCost = async (app: Awaited<ReturnType<typeof appWith>>) => {
       const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
       return pulls.find((p: { id: string }) => p.id === pr.id).cost_usd as number | null;
     };
 
-    // Batch 1 — a successful run: the list shows that run's cost.
+    // Run 1 — a successful run: the list shows that run's cost.
     const okApp = await appWith(REVIEW_FIXTURE);
     expect(await listCost(okApp)).toBeNull(); // never reviewed
     const agent = (
@@ -241,18 +241,26 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     const [first] = await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
     expect(first!.costUsd).toBeGreaterThan(0);
     expect(await listCost(okApp)).toBeCloseTo(first!.costUsd!);
+
+    // Run 2 — another successful click: the list total is the sum of both runs.
+    await okApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const twoRuns = await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
+    const second = twoRuns.find((r) => r.id !== first!.id)!;
+    expect(second.costUsd).toBeGreaterThan(0);
+    expect(second.batchId).not.toBe(first!.batchId);
+    const total = first!.costUsd! + second.costUsd!;
+    expect(await listCost(okApp)).toBeCloseTo(total);
     await okApp.close();
 
-    // Batch 2 — the model output fails the schema → the run fails with null
-    // cost, and as the latest batch it has no cost data → the list shows null.
+    // Run 3 — the model output fails the schema → the run fails with null cost.
+    // It adds nothing, and (unlike a latest-batch total) does not blank the column.
     const badApp = await appWith({});
     await badApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
-    const runs = await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
-    const failed = runs.find((r) => r.id !== first!.id)!;
+    const runs = await waitForPrRuns(pg.handle.db, pr.id, { expected: 3 });
+    const failed = runs.find((r) => r.id !== first!.id && r.id !== second.id)!;
     expect(failed.status).toBe('failed');
     expect(failed.costUsd).toBeNull();
-    expect(failed.batchId).not.toBe(first!.batchId);
-    expect(await listCost(badApp)).toBeNull();
+    expect(await listCost(badApp)).toBeCloseTo(total);
     await badApp.close();
   });
 

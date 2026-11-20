@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
@@ -129,26 +129,21 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Cost column: total USD of each PR's LATEST review batch (the runs created
-    // by one "Run review" click share a batch_id). Runs without cost data
-    // (failed/cancelled/unpriced) are skipped; null when the batch has none.
+    // Cost column: total USD over ALL review runs of each PR (lifetime spend).
+    // SQL sum() skips runs without cost data (failed/cancelled/unpriced/legacy)
+    // and yields NULL when none of the PR's runs has any → "—" in the UI.
     const costByPr = new Map<string, number | null>();
     if (prIds.length > 0) {
-      const runRows = await container.db
-        .select({ prId: t.agentRuns.prId, batchId: t.agentRuns.batchId, costUsd: t.agentRuns.costUsd })
+      const costRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          costUsd: sql<number | null>`sum(${t.agentRuns.costUsd})`.mapWith(Number),
+        })
         .from(t.agentRuns)
         .where(and(eq(t.agentRuns.workspaceId, workspaceId), inArray(t.agentRuns.prId, prIds)))
-        .orderBy(desc(t.agentRuns.ranAt));
-      const latestBatch = new Map<string, string>();
-      // Newest-first → the first batch_id seen per PR is its latest batch.
-      for (const run of runRows) {
-        if (run.prId && run.batchId && !latestBatch.has(run.prId)) latestBatch.set(run.prId, run.batchId);
-      }
-      for (const run of runRows) {
-        if (!run.prId || run.batchId == null || latestBatch.get(run.prId) !== run.batchId) continue;
-        const prev = costByPr.get(run.prId) ?? null;
-        if (run.costUsd != null) costByPr.set(run.prId, (prev ?? 0) + run.costUsd);
-        else if (!costByPr.has(run.prId)) costByPr.set(run.prId, null);
+        .groupBy(t.agentRuns.prId);
+      for (const row of costRows) {
+        if (row.prId) costByPr.set(row.prId, row.costUsd);
       }
     }
 

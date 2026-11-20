@@ -95,6 +95,7 @@
       "updated": "Updated",
       "cost": "Cost"
     },
+    "costTooltip": "Total cost of all review runs on this PR (OpenRouter-reported or estimated)",
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",
     "errorBody": "The engine returned an error.",

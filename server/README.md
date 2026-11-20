@@ -143,8 +143,9 @@ renders `null` as `—`.
 
 - `GET /pulls/:id/runs` → `cost_usd` per run.
 - `GET /runs/:id/trace` → `stats.cost_usd` (absent on legacy traces).
-- `GET /repos/:id/pulls` → `cost_usd` = sum over the PR's **latest review batch**
-  (all runs from one `POST /pulls/:id/review` share `agent_runs.batch_id`).
+- `GET /repos/:id/pulls` → `cost_usd` = sum over **all** of the PR's runs (lifetime
+  spend); `null` when no run has cost data. Runs from one `POST /pulls/:id/review` still
+  share `agent_runs.batch_id`, but the total does not use it.
   Spec: `../specs/M1-cost-badge.md`.
 
 ## Testing

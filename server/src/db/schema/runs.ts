@@ -31,8 +31,8 @@ export const agentRuns = pgTable('agent_runs', {
   /** USD for the run (OpenRouter-reported or PriceBook estimate). Null when
    *  unknown: failed/cancelled runs, legacy rows, unpriced models. */
   costUsd: doublePrecision('cost_usd'),
-  /** Shared by every run created by ONE runReview call (a "review batch");
-   *  the PR list totals cost over the latest batch. Null on legacy rows. */
+  /** Shared by every run created by ONE runReview call (a "review batch").
+   *  Not used by the PR-list cost total (that sums all runs). Null on legacy rows. */
   batchId: uuid('batch_id'),
 }, (t) => ({
   prBatchIdx: index('agent_runs_pr_batch_idx').on(t.prId, t.batchId),

@@ -26,6 +26,11 @@ _None yet._
   each `createAgentRun` insert gets its own `defaultNow()`. Rows from before migration `0010`
   have `batch_id = null`. Group by `batch_id`, never by timestamp. Ref:
   `server/src/modules/reviews/service.ts` (`runReview`), `server/src/modules/pulls/routes.ts`
+- **2026-11-20** — The PR-list `cost_usd` (`GET /repos/:id/pulls`) is the lifetime total over
+  ALL of a PR's `agent_runs` (one `sum(cost_usd) … GROUP BY pr_id`), not the latest batch.
+  `batch_id` is still written but nothing reads it any more, so don't reintroduce batch logic
+  there. `null` means no run has cost data. Why: the user reads the column as "money spent on
+  this PR". Ref: `server/src/modules/pulls/routes.ts`, `specs/M1-cost-badge.md` (Revised)
 
 ## Tool & Library Notes
 
