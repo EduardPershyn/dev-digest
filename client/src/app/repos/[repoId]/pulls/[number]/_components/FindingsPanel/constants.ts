@@ -16,3 +16,6 @@ export const KEY_TO_ACTION: Record<string, FindingActionKind> = {
   a: "accept",
   d: "dismiss",
 };
+
+/** Severities that get a counter — see `@/lib/severity` for why it's a local tuple. */
+export { SEVERITY_LEVELS } from "@/lib/severity";

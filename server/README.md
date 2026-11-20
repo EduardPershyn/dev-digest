@@ -132,6 +132,31 @@ What the reviewer actually sends to the model is assembled in
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.
 
+## Run cost (M1)
+
+Cost is attributed from the review's own LLM responses — never an extra call:
+OpenRouter's reported `usage.cost`, else the `PriceBook` estimate (live
+OpenRouter prices → static `adapters/llm/pricing.ts`). The executor persists it as
+`agent_runs.cost_usd` and `run_traces.trace.stats.cost_usd`; it is `null` when
+unknown (failed/cancelled runs, unpriced models, runs from before M1), and the UI
+renders `null` as `—`.
+
+- `GET /pulls/:id/runs` → `cost_usd` per run.
+- `GET /runs/:id/trace` → `stats.cost_usd` (absent on legacy traces).
+- `GET /repos/:id/pulls` → `cost_usd` = sum over **all** of the PR's runs (lifetime
+  spend); `null` when no run has cost data. Runs from one `POST /pulls/:id/review` still
+  share `agent_runs.batch_id`, but the total does not use it.
+  Spec: `../specs/M1-cost-badge.md`.
+
+## PR-list findings
+
+`GET /repos/:id/pulls` → `findings` per PR (`PrFindingsSummary`, `null` when never
+reviewed): `counts` per severity, `total`, and `top` — up to 5 previews sorted by
+severity then confidence, `rationale` flattened and cut to 220 chars. Only the **latest
+review of each agent** counts (re-runs replace, different agents add up; legacy
+`agent_id = null` reviews form one group), and dismissed findings are excluded. Computed
+on read in `src/modules/pulls/findings-summary.ts`. Spec: `../specs/pr-list-findings.md`.
+
 ## Testing
 
 The suite splits by filename — `*.it.test.ts` is DB-backed, everything else is

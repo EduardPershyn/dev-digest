@@ -66,6 +66,14 @@ export function FindingsTab({
   // Timeline → Review-runs navigation: clicking an agent name in the timeline
   // opens + scrolls to that run's accordion below. The nonce re-triggers the
   // scroll even when the same run is clicked twice.
+  // Timeline rows preview their run's findings (all of them, dismissed included —
+  // same number as the run's accordion header). Joined on review.run_id; no extra request.
+  const findingsByRun = React.useMemo(() => {
+    const m: Record<string, FindingRecord[]> = {};
+    for (const rv of runs) if (rv.run_id) m[rv.run_id] = rv.findings;
+    return m;
+  }, [runs]);
+
   const [target, setTarget] = React.useState<{ runId: string; n: number } | null>(null);
   const handleGoToReview = useCallback((runId: string) => {
     setTarget((p) => ({ runId, n: (p?.n ?? 0) + 1 }));
@@ -134,6 +142,7 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            findingsByRun={findingsByRun}
           />
         </div>
       )}

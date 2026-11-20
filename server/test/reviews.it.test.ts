@@ -7,6 +7,7 @@ import { seed } from '../src/db/seed.js';
 import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 import type { Review } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
@@ -209,6 +210,104 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // M1 cost badge: the engine's cost is persisted on the row, the trace, and
+    // the run-history response (MockLLMProvider reports 0.001 USD per call).
+    expect(run!.costUsd).toBeGreaterThan(0);
+    expect(run!.batchId).not.toBeNull();
+    expect(trace.stats.cost_usd).toBeCloseTo(run!.costUsd!);
+    const history = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(history[0].cost_usd).toBeCloseTo(run!.costUsd!);
+
+    await app.close();
+  });
+
+  it('cost: PR list totals ALL runs; failed runs record null cost and add nothing', async () => {
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const listCost = async (app: Awaited<ReturnType<typeof appWith>>) => {
+      const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return pulls.find((p: { id: string }) => p.id === pr.id).cost_usd as number | null;
+    };
+
+    // Run 1 — a successful run: the list shows that run's cost.
+    const okApp = await appWith(REVIEW_FIXTURE);
+    expect(await listCost(okApp)).toBeNull(); // never reviewed
+    const agent = (
+      await okApp.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Cost', provider: 'openai', model: 'gpt-4.1', system_prompt: 'c' },
+      })
+    ).json();
+    await okApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const [first] = await waitForPrRuns(pg.handle.db, pr.id, { expected: 1 });
+    expect(first!.costUsd).toBeGreaterThan(0);
+    expect(await listCost(okApp)).toBeCloseTo(first!.costUsd!);
+
+    // Run 2 — another successful click: the list total is the sum of both runs.
+    await okApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const twoRuns = await waitForPrRuns(pg.handle.db, pr.id, { expected: 2 });
+    const second = twoRuns.find((r) => r.id !== first!.id)!;
+    expect(second.costUsd).toBeGreaterThan(0);
+    expect(second.batchId).not.toBe(first!.batchId);
+    const total = first!.costUsd! + second.costUsd!;
+    expect(await listCost(okApp)).toBeCloseTo(total);
+    await okApp.close();
+
+    // Run 3 — the model output fails the schema → the run fails with null cost.
+    // It adds nothing, and (unlike a latest-batch total) does not blank the column.
+    const badApp = await appWith({});
+    await badApp.inject({ method: 'POST', url: `/pulls/${pr.id}/review`, payload: { agentId: agent.id } });
+    const runs = await waitForPrRuns(pg.handle.db, pr.id, { expected: 3 });
+    const failed = runs.find((r) => r.id !== first!.id && r.id !== second.id)!;
+    expect(failed.status).toBe('failed');
+    expect(failed.costUsd).toBeNull();
+    expect(await listCost(badApp)).toBeCloseTo(total);
+    await badApp.close();
+  });
+
+  it('PR list findings: latest review per agent, dismissed excluded, null when unreviewed', async () => {
+    const db = pg.handle.db;
+    const { repo, pr } = await setupRepoAndPr(db, workspaceId);
+    const app = await appWith(REVIEW_FIXTURE);
+    const listFindings = async () => {
+      const pulls = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+      return pulls.find((p: { id: string }) => p.id === pr.id).findings;
+    };
+    expect(await listFindings()).toBeNull(); // never reviewed
+
+    const agentA = randomUUID();
+    const agentB = randomUUID();
+    const at = (min: number) => new Date(Date.UTC(2026, 10, 20, 12, min));
+    const review = async (agentId: string, min: number) =>
+      (
+        await db
+          .insert(t.reviews)
+          .values({ workspaceId, prId: pr.id, agentId, kind: 'review', verdict: 'comment', createdAt: at(min) })
+          .returning()
+      )[0]!;
+    const finding = (reviewId: string, severity: string, title: string, extra: object = {}) => ({
+      reviewId, severity, title, category: 'bug', file: 'src/config.ts', startLine: 11, endLine: 11,
+      rationale: 'r', confidence: 0.9, ...extra,
+    });
+
+    // Agent A, older run: 2 CRITICAL — must be replaced by A's newer run.
+    const aOld = await review(agentA, 0);
+    await db.insert(t.findings).values([finding(aOld.id, 'CRITICAL', 'old-1'), finding(aOld.id, 'CRITICAL', 'old-2')]);
+    // Agent A, newer run: 1 WARNING (+ 1 dismissed CRITICAL that must not count).
+    const aNew = await review(agentA, 5);
+    await db.insert(t.findings).values([
+      finding(aNew.id, 'WARNING', 'a-warn'),
+      finding(aNew.id, 'CRITICAL', 'a-dismissed', { dismissedAt: new Date() }),
+    ]);
+    // Agent B: 1 SUGGESTION (accepted — still counts) → adds to A.
+    const b = await review(agentB, 3);
+    await db.insert(t.findings).values(finding(b.id, 'SUGGESTION', 'b-sugg', { acceptedAt: new Date() }));
+
+    const summary = await listFindings();
+    expect(summary.counts).toEqual({ CRITICAL: 0, WARNING: 1, SUGGESTION: 1 });
+    expect(summary.total).toBe(2);
+    expect(summary.top.map((f: { title: string }) => f.title)).toEqual(['a-warn', 'b-sugg']);
+    expect(summary.top[0]).toMatchObject({ severity: 'WARNING', file: 'src/config.ts', start_line: 11 });
     await app.close();
   });
 
@@ -297,6 +396,10 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     ).json();
     // seed has 2 enabled agents; we may have created more above in this PR's ws.
     expect(body.runs.length).toBeGreaterThanOrEqual(2);
+    // One POST = one review batch: every run shares a single batch_id.
+    const rows = await pg.handle.db.select().from(t.agentRuns).where(eq(t.agentRuns.prId, pr.id));
+    expect(new Set(rows.map((r) => r.batchId)).size).toBe(1);
+    expect(rows[0]!.batchId).not.toBeNull();
     await app.close();
   });
 });
