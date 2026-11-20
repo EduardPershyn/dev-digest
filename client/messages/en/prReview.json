@@ -97,11 +97,20 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "status": "Status",
       "updated": "Updated",
       "cost": "Cost"
     },
     "costTooltip": "Total cost of all review runs on this PR (OpenRouter-reported or estimated)",
+    "findings": {
+      "header": "{count, plural, one {# finding} other {# findings}}",
+      "more": "+{count} more — open the PR to see all",
+      "none": "No open findings",
+      "notReviewed": "Not reviewed yet",
+      "levelCount": "{count} {label}",
+      "cellLabel": "Open findings: {summary}. Focus or hover for details."
+    },
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",
     "errorBody": "The engine returned an error.",

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Provider } from './knowledge.js';
+import { Severity } from './findings.js';
 
 /**
  * Platform / scaffolding DTOs owned by F1:
@@ -156,6 +157,36 @@ export type Repo = z.infer<typeof Repo>;
 export const PrStatus = z.enum(['needs_review', 'reviewed', 'stale', 'open', 'closed', 'merged']);
 export type PrStatus = z.infer<typeof PrStatus>;
 
+/** One finding as previewed in the PR-list hover popover (rationale truncated server-side). */
+export const PrFindingPreview = z.object({
+  id: z.string(),
+  severity: Severity,
+  category: z.string(),
+  title: z.string(),
+  file: z.string(),
+  start_line: z.number().int(),
+  end_line: z.number().int(),
+  confidence: z.number(),
+  rationale: z.string(),
+});
+export type PrFindingPreview = z.infer<typeof PrFindingPreview>;
+
+/**
+ * Open findings of a PR for the list's FINDINGS column: the LATEST review of each
+ * agent, dismissed findings excluded. `top` is a severity-sorted preview; `total`
+ * counts all of them (so the UI can say "+N more").
+ */
+export const PrFindingsSummary = z.object({
+  counts: z.object({
+    CRITICAL: z.number().int(),
+    WARNING: z.number().int(),
+    SUGGESTION: z.number().int(),
+  }),
+  total: z.number().int(),
+  top: z.array(PrFindingPreview),
+});
+export type PrFindingsSummary = z.infer<typeof PrFindingsSummary>;
+
 export const PrMeta = z.object({
   id: z.string().nullish(),
   number: z.number().int(),
@@ -175,6 +206,9 @@ export const PrMeta = z.object({
   // Total USD over ALL of the PR's review runs (list endpoint only; null when
   // never reviewed or no run has cost data).
   cost_usd: z.number().nullish(),
+  // Open findings from each agent's latest review (list endpoint only; null when
+  // the PR was never reviewed).
+  findings: PrFindingsSummary.nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

@@ -15,6 +15,7 @@ remains as the historical record.
 | Spec | Status | Packages |
 |------|--------|----------|
 | [M1-cost-badge](M1-cost-badge.md) | done | server, client |
+| [pr-list-findings](pr-list-findings.md) | done | server, client |
 
 ## Template
 ```markdown

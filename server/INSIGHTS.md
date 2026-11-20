@@ -31,6 +31,12 @@ _None yet._
   `batch_id` is still written but nothing reads it any more, so don't reintroduce batch logic
   there. `null` means no run has cost data. Why: the user reads the column as "money spent on
   this PR". Ref: `server/src/modules/pulls/routes.ts`, `specs/M1-cost-badge.md` (Revised)
+- **2026-11-20** — The PR-list `findings` (`GET /repos/:id/pulls`) uses a DIFFERENT selection
+  rule from `score` and `cost_usd`: open findings of the LATEST `reviews` row per `agent_id`
+  (null agent = one legacy group), `dismissed_at IS NULL`. `score` = latest review of any
+  agent; `cost_usd` = all runs. Don't "unify" them without a spec change. Why: user decision —
+  re-runs replace an agent's findings, different agents add up. Ref:
+  `server/src/modules/pulls/findings-summary.ts`, `specs/pr-list-findings.md`
 
 ## Tool & Library Notes
 
@@ -42,7 +48,11 @@ _None yet._
 
 ## Session Notes
 
-_None yet._
+- **2026-11-20** — PR-list FINDINGS column: `PrMeta.findings` (`PrFindingsSummary`, both
+  contract copies) built in the list handler from two IN-queries + pure helpers
+  (`latestReviewIdsPerAgent`, `summarizeFindings`). Integration test seeds `reviews`/`findings`
+  rows directly with explicit `createdAt` instead of running agents — faster and deterministic
+  ordering (`reviews.agent_id` has no FK, so random UUIDs work). Ref: `server/test/reviews.it.test.ts`
 
 ## Open Questions
 

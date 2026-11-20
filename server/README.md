@@ -148,6 +148,15 @@ renders `null` as `—`.
   share `agent_runs.batch_id`, but the total does not use it.
   Spec: `../specs/M1-cost-badge.md`.
 
+## PR-list findings
+
+`GET /repos/:id/pulls` → `findings` per PR (`PrFindingsSummary`, `null` when never
+reviewed): `counts` per severity, `total`, and `top` — up to 5 previews sorted by
+severity then confidence, `rationale` flattened and cut to 220 chars. Only the **latest
+review of each agent** counts (re-runs replace, different agents add up; legacy
+`agent_id = null` reviews form one group), and dismissed findings are excluded. Computed
+on read in `src/modules/pulls/findings-summary.ts`. Spec: `../specs/pr-list-findings.md`.
+
 ## Testing
 
 The suite splits by filename — `*.it.test.ts` is DB-backed, everything else is

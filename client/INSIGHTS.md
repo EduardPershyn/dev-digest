@@ -26,6 +26,12 @@ _None yet._
   `useTranslations("<other ns>")` (like `RunCostBadge` → `common`) needs that namespace added
   to every consumer test too. Why: there is no global i18n test wrapper; messages are imported
   per test file. Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.test.tsx`
+- **2026-11-20** — Anything floating over the PR list (popover, menu) must be portalled to
+  `document.body` with `position: fixed` from the trigger's rect: the table card
+  (`tableCard` in `pulls/styles.ts`) is `overflow: hidden` and clips it. Clicks inside the
+  portal still bubble to `PRRow`'s `onClick` (React events follow the component tree, not
+  the DOM) and open the PR — intended here, `stopPropagation` if not. Ref:
+  `client/src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.tsx`
 
 ## Tool & Library Notes
 
@@ -53,6 +59,13 @@ _None yet._
   API calls on click). Headless check recipe: `google-chrome --headless=new
   --remote-debugging-port=…` + Node 22's built-in `WebSocket` — no extra deps needed.
   Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/`
+- **2026-11-20** — PR-list FINDINGS column + hover/focus popover (`specs/pr-list-findings.md`).
+  `SEVERITY_LEVELS` now lives in `client/src/lib/severity.ts` (FindingsPanel re-exports it).
+  Headless-Chrome hover check caught two layout bugs jsdom can't (stacked badge/title, a
+  horizontal scrollbar) — screenshot popovers, don't trust RTL alone for layout. The PR list
+  defaults to `?status=needs_review`, so reviewed PRs are hidden: open
+  `/repos/<id>/pulls?status=all` (or click "All") when checking a reviewed PR. Ref:
+  `client/src/app/repos/[repoId]/pulls/_components/FindingsCell/`
 
 ## Open Questions
 

@@ -1,4 +1,4 @@
-import type { FindingActionKind, Severity } from "@devdigest/shared";
+import type { FindingActionKind } from "@devdigest/shared";
 
 /** Sort weight per severity (lower = shown first). */
 export const SEVERITY_ORDER: Record<string, number> = {
@@ -17,14 +17,5 @@ export const KEY_TO_ACTION: Record<string, FindingActionKind> = {
   d: "dismiss",
 };
 
-/**
- * Severities that get a counter, in display order — exactly the Zod `Severity` contract.
- * Listed by hand because `@devdigest/shared` may only be imported as TYPES in the client
- * (Next's webpack can't resolve the barrel's `.js` specifiers at runtime). Kept in sync by
- * the type guard below (compile time) and `helpers.test.ts` (vs `Severity.options`).
- */
-export const SEVERITY_LEVELS = ["CRITICAL", "WARNING", "SUGGESTION"] as const satisfies readonly Severity[];
-
-/** Fails typecheck if the contract gains a severity that SEVERITY_LEVELS doesn't list. */
-type AssertNever<T extends never> = T;
-export type SeverityLevelsAreExhaustive = AssertNever<Exclude<Severity, (typeof SEVERITY_LEVELS)[number]>>;
+/** Severities that get a counter — see `@/lib/severity` for why it's a local tuple. */
+export { SEVERITY_LEVELS } from "@/lib/severity";
