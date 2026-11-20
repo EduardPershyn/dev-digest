@@ -6,4 +6,4 @@ in [`../../specs/`](../../specs/README.md) — naming, status legend, and templa
 ## Index
 | Spec | Status |
 |------|--------|
-| _none yet_ | |
+| [severity-filter](severity-filter.md) | done |

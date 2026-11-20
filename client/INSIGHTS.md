@@ -29,16 +29,35 @@ _None yet._
 
 ## Tool & Library Notes
 
-_None yet._
+- **2026-11-20** — `pnpm exec vitest run "src/app/repos/[repoId]/..."` reports `No test files
+  found`: the positional filter mangles the `[repoId]`/`[number]` brackets. Filter by a plain
+  name fragment instead (`pnpm exec vitest run FindingsPanel`). Why: Vitest treats the
+  argument as a pattern, not a literal path. Ref: `client/vitest.config.ts`
 
 ## Recurring Errors & Fixes
 
-_None yet._
+- **2026-11-20** — Importing a VALUE from `@devdigest/shared` (e.g. `Severity.options`) makes
+  the page 500 in `next dev` with `Module not found: Can't resolve './contracts/findings.js'`,
+  while `pnpm test` and `pnpm typecheck` stay green. Fix: client code imports the barrel with
+  `import type` only; mirror any needed enum as a local `as const` tuple guarded by a type
+  check + a Vitest test against the contract value (Vitest CAN import it). Why: the barrel
+  uses NodeNext `.js` specifiers; Vite maps them to `.ts`, Next's webpack has no
+  `extensionAlias`. Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/constants.ts`
 
 ## Session Notes
 
-_None yet._
+- **2026-11-20** — Severity counters + single-select filter in each review run's
+  `FindingsPanel` (`specs/severity-filter.md`). Counters follow *Hide low confidence* so
+  "click N → see N"; zero levels render disabled; filter state is per panel (resets on
+  collapse). Verified by 12 new tests and a headless-Chrome pass over CDP on a real run (no
+  API calls on click). Headless check recipe: `google-chrome --headless=new
+  --remote-debugging-port=…` + Node 22's built-in `WebSocket` — no extra deps needed.
+  Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/`
 
 ## Open Questions
 
-_None yet._
+- **2026-11-20** — `FindingCard` logs a React warning ("Updating a style property during
+  rerender (borderColor) when a conflicting property is set (borderLeftColor)") every time
+  the focused card changes — reproduced with a bare `j` keypress. Likely fix: replace
+  `borderColor` with per-side `borderTop/Right/BottomColor`. Not fixed (out of scope of
+  `specs/severity-filter.md`). Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingCard/styles.ts:10`
