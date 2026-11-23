@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "devdigest/pr-self-review/finding.schema.json",
+  "title": "PR self-review findings (one reviewer slice)",
+  "description": "What a skill reviewer writes to its findings file: a JSON array, possibly empty. Severities match DevDigest's own CRITICAL / WARNING / SUGGESTION.",
+  "type": "array",
+  "maxItems": 15,
+  "items": {
+    "type": "object",
+    "required": ["skill", "rule", "severity", "file", "line", "evidence", "message"],
+    "additionalProperties": false,
+    "properties": {
+      "skill": { "type": "string", "description": "Name of the skill whose rule is broken (the slice's skill)." },
+      "rule": { "type": "string", "description": "The rule's name or heading as written in the skill." },
+      "severity": { "enum": ["CRITICAL", "WARNING", "SUGGESTION"], "description": "Per severity.md." },
+      "file": { "type": "string", "description": "Repo-relative path, as in the diff heading." },
+      "line": { "type": "integer", "minimum": 1, "description": "New-file line number from the diff's left column." },
+      "evidence": { "type": "string", "minLength": 1, "description": "Verbatim fragment of the code at (or within a few lines of) `line`." },
+      "message": { "type": "string", "description": "What is wrong and why it matters, one or two sentences." },
+      "fix": { "type": "string", "description": "Concrete suggested fix." }
+    }
+  }
+}

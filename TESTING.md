@@ -68,6 +68,9 @@ cd server && pnpm exec vitest run --exclude '**/*.it.test.ts'   # unit, no Docke
 cd server && pnpm exec vitest run .it.test                      # integration, needs Docker
 cd server && pnpm test                                          # both
 
+# pr-self-review skill helper (Node built-ins only, no install; local only, no CI workflow)
+node --test .claude/skills/pr-self-review/scripts/gate.test.mjs
+
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh
 npm i -g agent-browser && agent-browser install

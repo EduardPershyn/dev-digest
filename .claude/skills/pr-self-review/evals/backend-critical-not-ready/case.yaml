@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: backend-critical-not-ready
+expected_outcome: |
+  On a branch that makes a domain file (server/src/modules/agents/helpers.ts) import the database
+  client, the run routes it to onion-architecture (backend), runs `pnpm lint:arch` and the server
+  typecheck, and reports at least one CRITICAL finding for the layering violation — from
+  dependency-cruiser's domain-files-are-pure / db-only-in-repositories rule and/or the
+  onion-architecture reviewer, re-checked by a verifier if it came from the LLM. The verdict is
+  NOT READY and the CRITICAL entry names the file, the rule and a fix (move DB access behind a
+  repository port). No frontend reviewer runs.

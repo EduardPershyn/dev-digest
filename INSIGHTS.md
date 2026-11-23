@@ -32,7 +32,12 @@ _None yet._
 
 ## Tool & Library Notes
 
-_None yet._
+- **2026-11-24** — `cd server && pnpm typecheck` also compiles `reviewer-core/src` through
+  path aliases, so it needs `reviewer-core/node_modules` too. Without them it reports ~8
+  false TS2307 errors ("Cannot find module 'openai' / 'zod'") in `reviewer-core/src/llm/*`.
+  Why: no workspace, so deps resolve per package dir. Ref: `.claude/skills/pr-self-review/scripts/lib/checks.mjs` (`needs`)
+- **2026-11-24** — Node 22's `node --test <directory>` fails with MODULE_NOT_FOUND. Pass the
+  file (`node --test .claude/skills/pr-self-review/scripts/gate.test.mjs`) or a glob instead.
 
 ## Recurring Errors & Fixes
 
@@ -50,6 +55,14 @@ _None yet._
   runs add nothing and no longer blank the column. The list badge has its own tooltip
   (`RunCostBadge` `tooltip` prop, `prReview.json` `list.costTooltip`). Timeline and drawer
   costs stay per run.
+
+- **2026-11-24** — Added the manual `/pr-self-review` skill (spec `specs/pr-self-review.md`):
+  `routing.json` maps skills to globs and content regexes, `scripts/gate.mjs` does scope,
+  slices, repo checks, grounding and the verdict, and the agent only spawns reviewer and
+  verifier subagents. Checked on fixtures: a docs-only diff is READY; a domain `helpers.ts`
+  importing `db` is NOT READY via `lint:arch` and the onion reviewer. Local `main` here was
+  10 commits ahead of `origin/main`, which inflates the default (origin) PR diff. The report
+  notes this; use `--base-ref main` to review only the branch.
 
 ## Open Questions
 

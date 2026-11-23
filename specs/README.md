@@ -16,6 +16,7 @@ remains as the historical record.
 |------|--------|----------|
 | [M1-cost-badge](M1-cost-badge.md) | done | server, client |
 | [pr-list-findings](pr-list-findings.md) | done | server, client |
+| [pr-self-review](pr-self-review.md) | done | .claude (tooling) |
 
 ## Template
 ```markdown

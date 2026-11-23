@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: docs-only-ready
+expected_outcome: |
+  On a branch whose only change is a paragraph added to docs/architecture.md, routing matches no
+  skill, so no reviewer or verifier subagent is spawned; no command checks run (no package touched);
+  the static checks pass; and the verdict is READY TO MERGE with a note that 1 changed file matched
+  no skill.

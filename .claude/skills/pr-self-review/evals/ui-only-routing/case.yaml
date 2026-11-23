@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: ui-only-routing
+expected_outcome: |
+  On a branch whose only change is a new client component (client/src/components/eval-widget/EvalWidget.tsx),
+  the run routes the file to the frontend skills only (frontend-ui-architecture, react-best-practices,
+  next-best-practices via 'use client', and security via the fetch( content trigger) and spawns no
+  backend reviewer (no onion-architecture, fastify, drizzle). It runs only the client typecheck among
+  the command checks. The report shows a coverage table with those skills, grounded findings with
+  file:line inside EvalWidget.tsx (e.g. fetching in useEffect with a missing dependency, the merge-blocked
+  rule living inside the component, `any`), and a verdict line. It does not edit code, push or open a PR.

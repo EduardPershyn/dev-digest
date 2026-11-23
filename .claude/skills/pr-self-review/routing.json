@@ -1,0 +1,94 @@
+{
+  "$comment": "Source of truth for which skill reviews which changed file. Paths are repo-relative globs (*, **, ?, {a,b}). A skill matches a file when a `paths` glob matches (and no `exclude` glob does) — it then sees every hunk of that file — OR when a `content` regex hits an added line of a file matching `codeFiles` (and `contentPaths`, if set) — it then sees only the matching hunks. Every directory in .claude/skills/ must appear here, with `review: false` if it is not a code-review skill (gate.test.mjs enforces this). Third-party skills are pinned in skills-lock.json, so routing lives here, never in their SKILL.md.",
+  "exclude": [
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    "**/dist/**",
+    "**/.next/**",
+    "server/src/db/migrations/meta/**",
+    ".devdigest/**",
+    "**/*.snap",
+    "**/*.{png,jpg,jpeg,gif,webp,ico,svg,woff,woff2,ttf,otf,pdf,zip,gz}"
+  ],
+  "codeFiles": ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,sql,sh,yml,yaml}"],
+  "skills": {
+    "frontend-ui-architecture": {
+      "review": true,
+      "paths": ["client/src/**/*.{ts,tsx}"],
+      "exclude": ["client/src/vendor/**", "**/*.test.{ts,tsx}", "client/src/test/**"]
+    },
+    "react-best-practices": {
+      "review": true,
+      "paths": ["client/src/**/*.tsx", "client/src/lib/hooks/**"],
+      "exclude": ["client/src/vendor/**", "**/*.test.{ts,tsx}", "client/src/test/**"]
+    },
+    "next-best-practices": {
+      "review": true,
+      "paths": ["client/src/app/**", "client/next.config.*", "client/src/middleware.ts"],
+      "exclude": ["**/*.test.{ts,tsx}"],
+      "content": ["['\"]use (client|server)['\"]"],
+      "contentPaths": ["client/**"]
+    },
+    "react-testing-library": {
+      "review": true,
+      "paths": ["client/**/*.test.{ts,tsx}", "client/src/test/**", "client/vitest.config.*"]
+    },
+    "onion-architecture": {
+      "review": true,
+      "paths": ["server/src/**", "reviewer-core/src/**", "server/.dependency-cruiser*"],
+      "exclude": ["**/*.test.ts"]
+    },
+    "fastify-best-practices": {
+      "review": true,
+      "paths": [
+        "server/src/modules/*/routes.ts",
+        "server/src/app.ts",
+        "server/src/server.ts",
+        "server/src/platform/**"
+      ],
+      "content": ["fastify\\.(register|addHook|decorate)"],
+      "contentPaths": ["server/**"]
+    },
+    "drizzle-orm-patterns": {
+      "review": true,
+      "paths": ["server/src/db/**", "server/src/modules/*/repository.ts", "server/src/modules/*/repository/**", "server/drizzle.config.ts"],
+      "exclude": ["server/src/db/migrations/**"],
+      "content": ["from ['\"]drizzle-orm"]
+    },
+    "postgresql-table-design": {
+      "review": true,
+      "paths": ["server/src/db/schema/**", "server/src/db/schema.ts", "server/src/db/migrations/*.sql"]
+    },
+    "zod": {
+      "review": true,
+      "paths": ["**/vendor/shared/contracts/**"],
+      "content": ["from ['\"]zod['\"]"]
+    },
+    "security": {
+      "review": true,
+      "paths": [
+        "server/src/modules/*/routes.ts",
+        "server/src/adapters/**",
+        "scripts/**",
+        ".github/workflows/**",
+        "**/*.env*"
+      ],
+      "content": [
+        "process\\.env",
+        "child_process",
+        "(?<![.\\w])(exec|execSync|execFile|execFileSync|spawn|spawnSync)\\(",
+        "sql\\.raw",
+        "dangerouslySetInnerHTML",
+        "\\bfetch\\("
+      ]
+    },
+    "typescript-expert": {
+      "review": true,
+      "paths": ["**/tsconfig*.json"],
+      "content": ["\\bas any\\b", "@ts-(ignore|expect-error)"]
+    },
+    "mermaid-diagram": { "review": false, "reason": "authoring skill: writes diagrams, does not review code" },
+    "engineering-insights": { "review": false, "reason": "authoring skill: writes INSIGHTS.md entries" },
+    "pr-self-review": { "review": false, "reason": "this skill" }
+  }
+}
