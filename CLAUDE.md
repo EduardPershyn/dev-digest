@@ -31,6 +31,7 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.9 · Fastify 5 · Drizzle 0.45 · Postg
 
 ## Read when
 - Changing how packages talk to each other or the review flow → `docs/architecture.md`
+- Any backend code in `server/` or `reviewer-core/` → `onion-architecture` skill (layering rules)
 - Adding/changing an API route, env var, or what goes into the review prompt → `server/README.md`
 - Adding any test or touching `.github/workflows/` → `TESTING.md`
 - Starting a milestone feature → `specs/README.md`, then the module's `specs/`

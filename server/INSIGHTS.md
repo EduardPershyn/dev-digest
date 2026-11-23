@@ -40,7 +40,12 @@ _None yet._
 
 ## Tool & Library Notes
 
-_None yet._
+- **2026-11-23** — dependency-cruiser: listing `node_modules` in `options.exclude` drops
+  those edges from the graph entirely, so `forbidden` rules with `to: node_modules/<sdk>/`
+  silently never fire. Keep `node_modules` only in `options.doNotFollow`, and prove a new
+  rule fires with a throwaway violating file before trusting a green run.
+  Why: exclude removes modules from the cruise; doNotFollow only stops descent.
+  Ref: `server/.dependency-cruiser.cjs`
 
 ## Recurring Errors & Fixes
 
@@ -53,6 +58,13 @@ _None yet._
   (`latestReviewIdsPerAgent`, `summarizeFindings`). Integration test seeds `reviews`/`findings`
   rows directly with explicit `createdAt` instead of running agents — faster and deterministic
   ordering (`reviews.agent_id` has no FK, so random UUIDs work). Ref: `server/test/reviews.it.test.ts`
+
+- **2026-11-23** — Added the `onion-architecture` skill (`.claude/skills/onion-architecture/`)
+  and its enforcement: `server/.dependency-cruiser.cjs` (cruises `src` + `../reviewer-core/src`),
+  `pnpm lint:arch` / `lint:arch:baseline`, baseline of 40 legacy violations in
+  `server/.dependency-cruiser-known-violations.json`. Decisions: flat modules (file name =
+  ring), zod allowed in domain, keep hand-written Container but inject ports into services,
+  `reviewer-core/src/llm/` is the fenced adapter area. Ref: `server/CLAUDE.md` Conventions
 
 ## Open Questions
 

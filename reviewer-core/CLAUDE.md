@@ -26,6 +26,8 @@ TypeScript 5.7 · zod 3 · openai SDK 4 (OpenRouter provider) · vitest 2.1
 - Untrusted content (diff, PR body, repo map) must go through `wrapUntrusted`.
 
 ## Read when
+- Adding a dependency, import or LLM code → `onion-architecture` skill (`src/llm/` is the only
+  fenced adapter area; checked by `cd ../server && pnpm lint:arch`)
 - Changing prompt assembly, strategy, structured output, or grounding → `README.md`
 - Changing what the server feeds in → `../server/README.md` (Review context)
 - Before starting → `INSIGHTS.md` · planned work → `specs/` · deeper docs → `docs/`
