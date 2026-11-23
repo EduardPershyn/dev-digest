@@ -4,57 +4,64 @@ Drizzle, the schema (`src/db/schema/*`), row types (`src/db/rows.ts`, `$inferSel
 `sql\`\`` fragments and pgvector operators are **infrastructure**. They live only in
 `modules/<f>/repository.ts` (or `repository/*.repo.ts`) and `src/db/`.
 
+## Records: the domain shape of persisted entities
+
+Services and helpers never import `db/rows.ts`, `db/schema` or `$inferSelect`. They type
+against **records** in `modules/_shared/records.ts` — plain interfaces mirroring the row
+(camelCase, `Date` columns). Repositories keep returning Drizzle rows, which are
+structurally identical, and `db/rows.ts` pins each row to its record:
+
+```ts
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Assert<T extends true> = T;
+export type _RowRecordDriftGuard = [Assert<Same<RepoRow, RepoRecord>>, /* … */];
+```
+
+A migration that changes a column fails `pnpm typecheck` there, so the domain shape can't
+drift silently. Mapping record → API contract (snake_case) stays a pure helper
+(`toRepoDto(record)`, `toAgentDto(record)`). Narrow read models (e.g. pulls' finding
+summaries) use their own plain types from the module's `types.ts`/domain file.
+
 ## Port in the module, implementation in the repository
 
 ```ts
 // modules/repos/ports.ts — application ring, domain language, no Drizzle
-import type { Repo } from '@devdigest/shared';
+import type { RepoRecord } from '../_shared/records.js';
 
-export interface NewRepo { workspaceId: string; owner: string; name: string; createdBy: string }
+export interface NewRepo { workspaceId: string; owner: string; name: string; fullName: string; createdBy: string }
 
 export interface RepoStore {
-  findByFullName(workspaceId: string, fullName: string): Promise<Repo | undefined>;
-  list(workspaceId: string): Promise<Repo[]>;
-  insert(input: NewRepo): Promise<Repo>;
-  markCloned(workspaceId: string, repoId: string, path: string): Promise<void>;
+  findByFullName(workspaceId: string, fullName: string): Promise<RepoRecord | undefined>;
+  list(workspaceId: string): Promise<RepoRecord[]>;
+  insert(values: NewRepo): Promise<RepoRecord>;
+  updateClonePath(repoId: string, clonePath: string): Promise<void>;
+  // …
 }
 ```
 
 ```ts
 // modules/repos/repository.ts — infrastructure ring
 import { and, eq } from 'drizzle-orm';
-import type { Repo } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
+import type { RepoRow } from '../../db/rows.js';
 import type { NewRepo, RepoStore } from './ports.js';
 
-type RepoRow = typeof t.repos.$inferSelect;          // never exported
-
-const toRepo = (row: RepoRow): Repo => ({            // mapper: row (camelCase) → contract (snake_case)
-  id: row.id,
-  workspace_id: row.workspaceId,
-  owner: row.owner,
-  name: row.name,
-  full_name: row.fullName,
-  // …
-});
-
-export class RepoRepository implements RepoStore {
+export class RepoRepository implements RepoStore {     // `implements` = compile-time conformance
   constructor(private db: Db) {}
 
-  async findByFullName(workspaceId: string, fullName: string) {
+  async findByFullName(workspaceId: string, fullName: string): Promise<RepoRow | undefined> {
     const [row] = await this.db.select().from(t.repos)
       .where(and(eq(t.repos.workspaceId, workspaceId), eq(t.repos.fullName, fullName)));
-    return row ? toRepo(row) : undefined;
+    return row;                                          // RepoRow ≡ RepoRecord (drift-guarded)
   }
   // …
 }
 ```
 
 Rules:
-- **Repositories return domain types.** Row types never cross the port. This is the line
-  that today's `helpers.ts` files cross (they import row types to build DTOs) — move that
-  mapping into the repository.
+- **Ports speak records / plain types.** Row types never appear in a port, service or
+  helper — only inside `repository*` files and `db/`.
 - **Name ports for the domain**: `RepoStore.findOpenPulls(...)`, not `query(where)`.
   Don't expose a generic `BaseRepository<T>` with query builders; that leaks Drizzle by another name.
 - **Tenancy stays in the repository signature**: every method takes `workspaceId`

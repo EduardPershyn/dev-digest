@@ -1,4 +1,3 @@
-import type { Container } from '../../platform/container.js';
 import type {
   Agent,
   AgentSkillLink,
@@ -6,9 +5,10 @@ import type {
   CiFailOn,
   ModelInfo,
   Provider,
+  LLMProvider,
   ReviewStrategy,
 } from '@devdigest/shared';
-import { AgentsRepository } from './repository.js';
+import type { AgentStore } from './ports.js';
 import { toAgentDto, toAgentVersionDto } from './helpers.js';
 
 /**
@@ -48,11 +48,18 @@ export interface UpdateAgentInput {
   enabled?: boolean;
 }
 
-export class AgentsService {
-  private repo: AgentsRepository;
+/** Ports the agents use cases need — wired in routes.ts. */
+export interface AgentsServiceDeps {
+  store: AgentStore;
+  /** Resolve an LLM provider by id (throws when its key isn't configured). */
+  llm: (provider: Provider) => Promise<LLMProvider>;
+}
 
-  constructor(private container: Container) {
-    this.repo = new AgentsRepository(container.db);
+export class AgentsService {
+  private readonly repo: AgentStore;
+
+  constructor(private readonly deps: AgentsServiceDeps) {
+    this.repo = deps.store;
   }
 
   async list(workspaceId: string): Promise<Agent[]> {
@@ -177,7 +184,7 @@ export class AgentsService {
    */
   async listModels(provider: Provider): Promise<ModelInfo[]> {
     try {
-      const llm = await this.container.llm(provider);
+      const llm = await this.deps.llm(provider);
       return await llm.listModels();
     } catch {
       return [];

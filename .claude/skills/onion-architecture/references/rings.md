@@ -24,8 +24,12 @@ Drotbohm's "sliced onion" is why modules stay feature-first (`modules/<feature>/
 - `server/src/vendor/shared/adapters.ts` — **port interfaces** (`LLMProvider`, `GitHubClient`,
   `GitClient`, `CodeIndex`, `Embedder`, `SecretsProvider`, `AuthProvider`). Interfaces are part
   of the core; their implementations are not.
+- `modules/_shared/records.ts` — persisted entity records (`RepoRecord`, `AgentRecord`,
+  `PullRecord`, `ReviewRecord`, `FindingRecord`, …): plain camelCase interfaces that
+  services/helpers type against instead of Drizzle rows.
 - `modules/<f>/types.ts`, `constants.ts`, `helpers.ts`, and pure single-purpose files
-  (`pulls/status.ts`, `pulls/findings-summary.ts`, `reviews/findings.ts` if pure).
+  (`pulls/status.ts`, `pulls/findings-summary.ts`).
+- `platform/diff-parser.ts` — pure unified-diff parser (shared kernel).
 - `reviewer-core/src/` — `prompt.ts`, `grounding.ts`, `review/*`, `output/*`, `llm/structured.ts`
   (pure helpers). The engine is a domain service: `reviewPullRequest(input, llm)` takes all data
   as arguments (Seemann's "impureim sandwich": the server reads, the engine decides, the server writes).
@@ -67,14 +71,17 @@ Ask in order:
 If a file is *both* (e.g. `reviews/diff-loader.ts` fetches a diff and parses it), split it:
 the parser is domain, the fetch is an adapter call made from the service.
 
-## Known misplacements (in the baseline — fix when touched)
+## How the 2026-11-23 refactor resolved the original violations
 
-| File | Problem | Target |
-|---|---|---|
-| `pulls/routes.ts`, `polling/routes.ts`, `workspace/routes.ts`, `settings/routes.ts` | Drizzle queries in routes | repository + service per module |
-| `settings/feature-models.ts` | DB query + `Container` in a helper | `settings/repository.ts` + service |
-| `repos/helpers.ts`, `agents/helpers.ts`, `reviews/helpers.ts` | import row types / repository | repository maps rows → domain types; helpers take domain types |
-| `*/service.ts` (agents, repos, reviews, repo-intel) | take `Container`, `new XRepository(container.db)` | constructor `deps` of ports |
-| `reviews/run-executor.ts`, `reviews/diff-loader.ts` | schema/rows/`Container` imports | ports; parsing moved to domain |
-| `repo-intel/service.ts`, `repo-intel/pipeline/*` | import concrete `adapters/astgrep`, `adapters/codeindex/extract`, `adapters/tokenizer`; cycle through `container.ts` | inject ports (`DepGraph`, `Tokenizer`, an extractor port); pure extractors may move to domain |
-| `reviews/diff-loader.ts` → `adapters/git/diff-parser.ts` | pure parser lives in adapters | move parser to a domain location (e.g. `@devdigest/shared` or `reviews/`) |
+Useful as worked examples of each fix:
+
+| Was | Now |
+|---|---|
+| Drizzle queries in `pulls`/`polling`/`workspace`/`settings` routes | each module got `ports.ts` + `repository.ts` + `service.ts`; routes are 1-call handlers |
+| `settings/feature-models.ts` querying via `Container` | takes a `SettingsReader` port; callers pass `container.settingsRepo` |
+| helpers/services typed against `db/rows.ts` / `$inferSelect` | domain records in `modules/_shared/records.ts`; `db/rows.ts` asserts row ≡ record at compile time |
+| services taking `Container`, `new XRepository(container.db)` | `<Feature>ServiceDeps` of ports, built by `build<Feature>Service(c)` in `routes.ts` |
+| services registering their own job handlers | `routes.ts` registers and zod-parses payloads (`CloneJobPayload`, `IndexJobPayload`) |
+| `reviews` reaching into `container.agentsRepo` | consumer-owned port `AgentDirectory` in `reviews/ports.ts` |
+| pure `adapters/git/diff-parser.ts` imported by a module | moved to `platform/diff-parser.ts` (shared kernel) |
+| repo-intel importing ast-grep/extract/tokenizer adapters; cycle via `container.ts` | `repo-intel/ports.ts` owns `SourceParser`, `DepGraph`, `Tokenizer`, `RepoIntelStore`, `IndexerDeps`; adapters implement them; `container.repoIntelDeps()` wires them |

@@ -1,9 +1,9 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
 import { isConfigChange } from './helpers.js';
+import type { AgentStore, InsertAgent, UpdateAgent } from './ports.js';
 
 /**
  * A2 — agents data-access. Owns `agents`, `agent_versions`, and the
@@ -13,34 +13,7 @@ import { isConfigChange } from './helpers.js';
 
 import type { AgentRow, AgentVersionRow } from '../../db/rows.js';
 export type { AgentRow, AgentVersionRow };
-
-export interface InsertAgent {
-  workspaceId: string;
-  name: string;
-  description?: string;
-  provider: Provider;
-  model: string;
-  systemPrompt: string;
-  outputSchema?: unknown;
-  strategy?: ReviewStrategy;
-  ciFailOn?: CiFailOn;
-  repoIntel?: boolean;
-  enabled?: boolean;
-  createdBy?: string | null;
-}
-
-export interface UpdateAgent {
-  name?: string;
-  description?: string;
-  provider?: Provider;
-  model?: string;
-  systemPrompt?: string;
-  outputSchema?: unknown;
-  strategy?: ReviewStrategy;
-  ciFailOn?: CiFailOn;
-  repoIntel?: boolean;
-  enabled?: boolean;
-}
+export type { InsertAgent, UpdateAgent } from './ports.js';
 
 /** A skill linked to an agent (with its order), joined from agent_skills. */
 export interface LinkedSkillRow {
@@ -48,7 +21,7 @@ export interface LinkedSkillRow {
   order: number;
 }
 
-export class AgentsRepository {
+export class AgentsRepository implements AgentStore {
   constructor(private db: Db) {}
 
   async list(workspaceId: string): Promise<AgentRow[]> {

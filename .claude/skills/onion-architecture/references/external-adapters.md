@@ -14,7 +14,7 @@ lets tests swap them through `ContainerOverrides`. Keep extending this; don't by
 | `GitClient` | `adapters/git/simple-git.ts` | `simple-git` |
 | `CodeIndex` | `adapters/codeindex/ripgrep.ts` | `@vscode/ripgrep` |
 | `Embedder` | `adapters/embedder/openai.ts` | `openai` |
-| `DepGraph`, `Tokenizer` | `adapters/depgraph`, `adapters/tokenizer` | `dependency-cruiser`, `js-tiktoken` |
+| `DepGraph`, `Tokenizer`, `SourceParser` (ports owned by `repo-intel/ports.ts`) | `adapters/depgraph`, `adapters/tokenizer`, `adapters/astgrep/source-parser.ts` | `dependency-cruiser`, `js-tiktoken`, `@ast-grep/napi` |
 
 ## Adding a new external service (e.g. GitLab, a new LLM vendor)
 
@@ -48,10 +48,17 @@ reviewer-core is the innermost, most reused code (studio + CI runner):
 
 ## Pure helpers that ended up in adapters/
 
-Some pure code sits under `src/adapters/` (e.g. `git/diff-parser.ts`, `codeindex/extract.ts`).
-Modules importing them trip `concrete-adapters-only-in-composition-root`. Fix by moving
-the pure part to the domain (module file or `@devdigest/shared`) and keeping only the
-I/O in the adapter.
+Pure code under `src/adapters/` that a module imports trips
+`concrete-adapters-only-in-composition-root`. Two accepted fixes:
+- **Move it inward** when it's general domain logic — e.g. the unified-diff parser now
+  lives in `platform/diff-parser.ts`.
+- **Wrap it behind a port** when it's tied to a technology — e.g. ast-grep parsing and
+  regex fact extraction are exposed as `astGrepSourceParser: SourceParser`
+  (`adapters/astgrep/source-parser.ts`), injected via `container.sourceParser`.
+  Typing the adapter object as the port is the conformance check.
+
+A module-owned port that an adapter implements (`repo-intel/ports.ts` ← `adapters/tokenizer`)
+is fine: infrastructure depending inward is the point.
 
 ## Sources
 - https://baabakk.github.io/llm-ports/concepts/ports-and-adapters

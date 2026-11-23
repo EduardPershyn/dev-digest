@@ -27,20 +27,20 @@ import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { RepoRepository } from './repository.js';
 import { RepoService } from './service.js';
+import { CLONE_JOB_KIND, CloneJobPayload } from './constants.js';
 
-/** Module composition: the ONLY place this module turns the Container into ports. */
-function buildRepoService(c: Container): RepoService {
-  return new RepoService({
-    store: new RepoRepository(c.db),
-    git: c.git,
-    jobs: c.jobs,
-    secrets: c.secrets,
-  });
+/** Module wiring — the only place the repos module turns the Container into ports. */
+export function buildRepoService(c: Container): RepoService {
+  return new RepoService({ store: new RepoRepository(c.db), git: c.git, jobs: c.jobs });
 }
 
 export default async function reposRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const service = buildRepoService(app.container);
+
+  app.container.jobs.register(CLONE_JOB_KIND, async (payload) => {
+    await service.runCloneJob(CloneJobPayload.parse(payload));
+  });
 
   app.post('/repos', { schema: { body: RepoInput } }, async (req, reply) => {
     const { workspaceId, userId } = await getContext(app.container, req);
@@ -53,8 +53,15 @@ export default async function reposRoutes(appBase: FastifyInstance) {
 
 Why here and not in `container.ts`: the container stays a registry of *shared*
 infrastructure (db, secrets, git, github, llm, jobs, runBus, cross-module repositories),
-while each module owns how its own service is assembled. Cross-module repositories that
-several modules need (`agentsRepo`, `reviewRepo`) stay as `Container` getters.
+while each module owns how its own service is assembled. Cross-module pieces stay
+`Container` getters: `agentsRepo`, `reviewRepo`, `settingsRepo`, `repoIntel`, and
+`repoIntelDeps()` (the repo-intel facade is built in two places from the same ports).
+`app.ts` reuses a module's builder when it needs a service at boot
+(`buildReviewService(container).reapStaleRuns()`).
+
+Pass lazy resolvers for things that may throw when unconfigured
+(`github: () => c.github()`, `llm: (p) => c.llm(p)`) — the use case decides how to degrade.
+Services that log take a `WarnLogger` port (`modules/_shared/ports.ts`); routes pass `app.log`.
 
 The `Container` (service locator) stops at `routes.ts`. `lint:arch` rule
 `container-only-in-delivery` enforces this.

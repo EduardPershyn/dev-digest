@@ -7,17 +7,11 @@ import * as t from '../../db/schema.js';
  * table. Every query is scoped by `workspaceId` (tenancy guard).
  */
 
-export type RepoRow = typeof t.repos.$inferSelect;
+export type { RepoRow } from '../../db/rows.js';
+import type { RepoRow } from '../../db/rows.js';
+import type { NewRepo, RepoStore } from './ports.js';
 
-export interface InsertRepo {
-  workspaceId: string;
-  owner: string;
-  name: string;
-  fullName: string;
-  createdBy: string;
-}
-
-export class RepoRepository {
+export class RepoRepository implements RepoStore {
   constructor(private db: Db) {}
 
   /** Find a repo in a workspace by its `owner/name` full name (dedupe on add). */
@@ -41,7 +35,7 @@ export class RepoRepository {
     return row;
   }
 
-  async insert(values: InsertRepo): Promise<RepoRow> {
+  async insert(values: NewRepo): Promise<RepoRow> {
     const [row] = await this.db
       .insert(t.repos)
       .values({

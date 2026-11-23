@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { Container } from '../../platform/container.js';
 import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import type { AgentRow } from '../../db/rows.js';
-import { ReviewRepository } from './repository.js';
+import type { AgentRecord } from '../_shared/records.js';
+import type { AgentDirectory, ReviewStore } from './ports.js';
 import { type ReviewDto, type ReviewDtoFinding } from './helpers.js';
-import { ReviewRunExecutor, type Logger } from './run-executor.js';
+import { ReviewRunExecutor, type Logger, type ReviewRunDeps } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
 
@@ -20,21 +19,26 @@ export type { ReviewDto, ReviewDtoFinding } from './helpers.js';
  *        → llm.completeStructured({ schema: Review }) (single-pass)
  *        → groundFindings(...) (citation gate — drops findings off the diff)
  *        → persist reviews + kept findings (+ grounding summary)
- *   while streaming RunEvents over container.runBus, and on completion writing
+ *   while streaming RunEvents over the injected runBus, and on completion writing
  *   the whole log as ONE RunTrace doc + an agent_runs row.
  *
  * Also: the finding accept/dismiss actions. The bulky run execution lives in
  * run-executor; this class keeps the public method surface.
  */
-export class ReviewService {
-  private repo: ReviewRepository;
-  private agents: Container['agentsRepo'];
-  private executor: ReviewRunExecutor;
+/** Ports the review use cases need — wired in routes.ts. */
+export interface ReviewServiceDeps extends ReviewRunDeps {
+  agents: AgentDirectory;
+}
 
-  constructor(private container: Container) {
-    this.repo = new ReviewRepository(container.db);
-    this.agents = container.agentsRepo;
-    this.executor = new ReviewRunExecutor(container, this.repo, this.agents);
+export class ReviewService {
+  private readonly repo: ReviewStore;
+  private readonly agents: AgentDirectory;
+  private readonly executor: ReviewRunExecutor;
+
+  constructor(private readonly deps: ReviewServiceDeps) {
+    this.repo = deps.store;
+    this.agents = deps.agents;
+    this.executor = new ReviewRunExecutor(deps);
   }
 
   // ===========================================================================
@@ -47,7 +51,7 @@ export class ReviewService {
   async resolveTargets(
     workspaceId: string,
     opts: { agentId?: string; all?: boolean },
-  ): Promise<AgentRow[]> {
+  ): Promise<AgentRecord[]> {
     if (opts.all) return this.agents.listEnabled(workspaceId);
     if (opts.agentId) {
       const agent = await this.agents.getById(workspaceId, opts.agentId);
@@ -85,9 +89,9 @@ export class ReviewService {
    */
   async cancelRun(runId: string): Promise<void> {
     this.publish(runId, 'info', 'Cancellation requested — stopping…');
-    this.container.runBus.cancel(runId);
+    this.deps.runBus.cancel(runId);
     await this.repo.cancelRunIfRunning(runId);
-    this.container.runBus.complete(runId);
+    this.deps.runBus.complete(runId);
   }
 
   /** Reap runs left 'running' by a previous (now-dead) process. Called on boot. */
@@ -104,7 +108,7 @@ export class ReviewService {
   async runReview(
     workspaceId: string,
     prId: string,
-    targets: AgentRow[],
+    targets: AgentRecord[],
     logger?: Logger,
   ): Promise<{ runs: { run_id: string; agent_id: string; agent_name: string }[]; reviews: ReviewDto[] }> {
     const pull = await this.repo.getPull(workspaceId, prId);
@@ -116,7 +120,7 @@ export class ReviewService {
     // the client persists these in global state and subscribes to the SSE
     // stream. The actual (slow) review runs in the background below.
     const runs: { run_id: string; agent_id: string; agent_name: string }[] = [];
-    const jobs: { agent: AgentRow; runId: string }[] = [];
+    const jobs: { agent: AgentRecord; runId: string }[] = [];
     // One batch id per call: the PR list totals cost over the latest batch.
     const batchId = randomUUID();
     for (const agent of targets) {
@@ -142,7 +146,7 @@ export class ReviewService {
   }
 
   private publish(runId: string, kind: RunEventKind, msg: string, data?: unknown) {
-    return this.container.runBus.publish(runId, kind, msg, data);
+    return this.deps.runBus.publish(runId, kind, msg, data);
   }
 
   // ===========================================================================

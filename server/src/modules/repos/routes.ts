@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { RepoInput } from '@devdigest/shared';
+import type { Container } from '../../platform/container.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
+import { RepoRepository } from './repository.js';
 import { RepoService } from './service.js';
+import { CLONE_JOB_KIND, CloneJobPayload } from './constants.js';
 
 /**
  * F1 — repos module. Transport layer only: parses requests, maps status
@@ -16,12 +19,20 @@ import { RepoService } from './service.js';
  * The clone runs as a JobRunner job (kind 'clone') — real `git clone` via the
  * GitClient adapter into <cloneDir>/<owner>/<repo>.
  */
+/** Module wiring — the only place the repos module turns the Container into ports. */
+export function buildRepoService(c: Container): RepoService {
+  return new RepoService({ store: new RepoRepository(c.db), git: c.git, jobs: c.jobs });
+}
+
 export default async function reposRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
-  const service = new RepoService(app.container);
+  const service = buildRepoService(app.container);
 
-  // Register the clone job handler once.
-  service.registerCloneJobHandler();
+  // Register the clone job handler once (driving adapter: parse the persisted
+  // payload at the boundary, then hand a typed value to the use case).
+  app.container.jobs.register(CLONE_JOB_KIND, async (payload) => {
+    await service.runCloneJob(CloneJobPayload.parse(payload));
+  });
 
   app.post('/repos', { schema: { body: RepoInput } }, async (req, reply) => {
     const { workspaceId, userId } = await getContext(app.container, req);

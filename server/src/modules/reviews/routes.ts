@@ -5,6 +5,7 @@ import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
+import type { Container } from '../../platform/container.js';
 import { ReviewService } from './service.js';
 
 /**
@@ -16,10 +17,23 @@ import { ReviewService } from './service.js';
  *   POST   /findings/:id/(accept|dismiss)              → finding actions
  */
 const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
+
+/** Module wiring — the only place the reviews module turns the Container into ports. */
+export function buildReviewService(c: Container): ReviewService {
+  return new ReviewService({
+    store: c.reviewRepo,
+    agents: c.agentsRepo,
+    runBus: c.runBus,
+    llm: (provider) => c.llm(provider),
+    git: c.git,
+    repoIntel: c.repoIntel,
+  });
+}
+
 export default async function reviewsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
-  const service = new ReviewService(container);
+  const service = buildReviewService(container);
 
   // ---- Run a review (manual trigger) -------------------------------
   // Tight per-route limit: each call can fan out to expensive LLM runs.

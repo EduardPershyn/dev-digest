@@ -2,12 +2,25 @@
  * repo-intel constants. Phase-tagged: [T1] used now; [T2]/[T3]
  * exported early so the pipeline lands against a single source of truth.
  */
+import { z } from 'zod';
 
 // --- Job kinds (registered on JobRunner; enqueued from repos/service.ts) ----
 export const INDEX_JOB_KIND = 'repo-intel-index';
 export const REFRESH_JOB_KIND = 'repo-intel-refresh';
 /** Manual "re-analyze": fetch latest from origin + incremental reindex. */
 export const RESYNC_JOB_KIND = 'repo-intel-resync';
+
+/**
+ * Payload of the INDEX/REFRESH/RESYNC jobs. Persisted job payloads come back
+ * as `unknown`, so the handlers (repo-intel/routes.ts) parse with this.
+ * owner/name are optional hints — the pipeline looks the repo up by id.
+ */
+export const IndexJobPayload = z.object({
+  repoId: z.string(),
+  owner: z.string().optional(),
+  name: z.string().optional(),
+});
+export type IndexJobPayload = z.infer<typeof IndexJobPayload>;
 
 // --- Walk / parse scope -----------------------------------------------------
 /** [T1] Files we parse (diff-scoped in T1; whole walk in T2). */

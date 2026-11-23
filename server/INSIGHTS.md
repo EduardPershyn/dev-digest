@@ -38,6 +38,13 @@ _None yet._
   re-runs replace an agent's findings, different agents add up. Ref:
   `server/src/modules/pulls/findings-summary.ts`, `specs/pr-list-findings.md`
 
+- **2026-11-23** — Onion records pattern: persisted-entity shapes for services/helpers live in
+  `src/modules/_shared/records.ts`; repositories keep returning Drizzle rows (structurally equal)
+  and `src/db/rows.ts` holds compile-time `Same<Row, Record>` assertions. After a migration that
+  changes `repos`/`agents`/`agent_versions`/`pull_requests`/`pr_files`/`reviews`/`findings`,
+  `pnpm typecheck` fails in `db/rows.ts` until the record is updated — that is intended.
+  Ref: `server/src/db/rows.ts`
+
 ## Tool & Library Notes
 
 - **2026-11-23** — dependency-cruiser: listing `node_modules` in `options.exclude` drops
@@ -65,6 +72,15 @@ _None yet._
   `server/.dependency-cruiser-known-violations.json`. Decisions: flat modules (file name =
   ring), zod allowed in domain, keep hand-written Container but inject ports into services,
   `reviewer-core/src/llm/` is the fenced adapter area. Ref: `server/CLAUDE.md` Conventions
+
+- **2026-11-23** — Applied the onion rules to all modules (lint:arch baseline 40 → 0, still
+  210/210 server tests): every module has ports/repository/service with `build<X>Service(c)`
+  wiring in routes.ts; job handlers registered + zod-parsed in routes (`CloneJobPayload`,
+  `IndexJobPayload`); `diff-parser` moved to `platform/`; repo-intel owns `SourceParser`/
+  `DepGraph`/`Tokenizer`/`RepoIntelStore` ports, wired by `container.repoIntelDeps()`;
+  feature-models now take `container.settingsRepo`. Note: `vitest` does not type-check —
+  `test/` has 15 pre-existing tsc errors (adapters, prompt-callers, facade-degraded,
+  settings-test-connection, agents-versions) unrelated to this change. Ref: `server/src/modules/`
 
 ## Open Questions
 

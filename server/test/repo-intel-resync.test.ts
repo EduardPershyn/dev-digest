@@ -17,7 +17,8 @@ import { MockGitClient } from '../src/adapters/mocks.js';
 import { INDEXER_VERSION } from '../src/modules/repo-intel/constants.js';
 import type { RepoIntelRepository } from '../src/modules/repo-intel/repository.js';
 import type { IndexState } from '../src/modules/repo-intel/types.js';
-import type { Container } from '../src/platform/container.js';
+import type { RepoIntelDeps } from '../src/modules/repo-intel/service.js';
+import { astGrepSourceParser } from '../src/adapters/astgrep/source-parser.js';
 
 interface Basics {
   id: string;
@@ -40,14 +41,17 @@ function makeService(opts: { basics: Basics | null; state?: IndexState | null; g
     },
   } as unknown as RepoIntelRepository;
 
-  const container = {
+  const deps = {
+    store: repo,
     git: opts.git,
-    db: {}, // never queried — service.repo is overridden below
+    codeIndex: {} as never, // not reached by resync
     depgraph: { buildEdges: async () => [] },
     tokenizer: { count: (text: string) => Math.ceil(text.length / 4) },
-  } as unknown as Container;
+    parser: astGrepSourceParser,
+    repoIntelEnabled: true,
+  } as unknown as RepoIntelDeps;
 
-  const service = new RepoIntelService(container);
+  const service = new RepoIntelService(deps);
   (service as unknown as { repo: RepoIntelRepository }).repo = repo;
   return { service, touched };
 }

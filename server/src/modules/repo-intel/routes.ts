@@ -5,29 +5,39 @@
  *   POST /repos/:id/resync       → enqueues a RESYNC_JOB_KIND job (202 + job id):
  *                                  fetch latest from origin + incremental reindex.
  *
- * Job-handler registration lives here: this plugin runs once at app boot and
- * calls `RepoIntelService.registerIndexJobHandlers()` so INDEX/REFRESH jobs
- * enqueued by `repos/service.ts` (after clone / on refresh) have a handler
- * to run against. Mirrors the `RepoService.registerCloneJobHandler()` shape.
+ * Job-handler registration lives here (driving adapter): this plugin runs
+ * once at app boot and registers the INDEX/REFRESH/RESYNC handlers so jobs
+ * enqueued by `repos/service.ts` (after clone / on refresh) have a handler to
+ * run against. Payloads come back from the DB as `unknown` and are parsed here.
  */
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { RepoIntelService } from './service.js';
-import { RESYNC_JOB_KIND } from './constants.js';
+import { INDEX_JOB_KIND, IndexJobPayload, REFRESH_JOB_KIND, RESYNC_JOB_KIND } from './constants.js';
 import type { IndexState } from './types.js';
 
 export default async function repoIntelRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
-  // Register the INDEX/REFRESH handlers exactly once at module load. Using a
-  // local service here (instead of `container.repoIntel`) is fine — the
+  // Register the INDEX/REFRESH/RESYNC handlers exactly once at module load.
+  // Using a local service here (instead of `container.repoIntel`) is fine — the
   // JobRunner stores the handler closure, not the service instance, and the
   // lazy `container.repoIntel` getter constructs its own service for read
-  // calls. Both share the same DB, so behaviour is identical.
-  const service = new RepoIntelService(container);
-  service.registerIndexJobHandlers();
+  // calls. Both are built from the same ports, so behaviour is identical.
+  // The handlers swallow the IndexResult on purpose — JobRunner expects
+  // `Promise<void>`; progress is observable via `repo_index_state`.
+  const service = new RepoIntelService(container.repoIntelDeps());
+  container.jobs.register(INDEX_JOB_KIND, async (payload) => {
+    await service.indexRepo(IndexJobPayload.parse(payload).repoId);
+  });
+  container.jobs.register(REFRESH_JOB_KIND, async (payload) => {
+    await service.refreshIndex(IndexJobPayload.parse(payload).repoId);
+  });
+  container.jobs.register(RESYNC_JOB_KIND, async (payload) => {
+    await service.resyncRepo(IndexJobPayload.parse(payload).repoId);
+  });
 
   app.get(
     '/repos/:id/index-state',

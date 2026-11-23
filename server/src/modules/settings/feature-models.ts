@@ -1,11 +1,9 @@
-import { eq } from 'drizzle-orm';
 import {
   FEATURE_MODELS,
   FeatureModelChoice,
   type FeatureModelId,
 } from '@devdigest/shared';
-import type { Container } from '../../platform/container.js';
-import * as t from '../../db/schema.js';
+import type { SettingsReader } from './ports.js';
 import { rowsToSettings } from './helpers.js';
 
 /**
@@ -13,7 +11,7 @@ import { rowsToSettings } from './helpers.js';
  *
  * System LLM features (onboarding, intent, risk brief, conformance, conventions)
  * read their provider/model from the workspace's Settings instead of a hardcoded
- * module constant. When the workspace hasn't chosen one, we fall back to the
+ * module constant (callers pass `container.settingsRepo`). When the workspace hasn't chosen one, we fall back to the
  * registry default in `FEATURE_MODELS` — which mirrors each module's old
  * constant, so behaviour is unchanged until a model is explicitly picked.
  */
@@ -34,14 +32,11 @@ export function defaultFeatureModel(id: FeatureModelId): FeatureModelChoice {
  * `resolveFeatureModel` instead.
  */
 export async function getFeatureModelOverride(
-  container: Container,
+  settings: SettingsReader,
   workspaceId: string,
   id: FeatureModelId,
 ): Promise<FeatureModelChoice | undefined> {
-  const rows = await container.db
-    .select({ key: t.settings.key, value: t.settings.value })
-    .from(t.settings)
-    .where(eq(t.settings.workspaceId, workspaceId));
+  const rows = await settings.list(workspaceId);
   const fm = (rowsToSettings(rows) as { feature_models?: Record<string, unknown> }).feature_models;
   const parsed = FeatureModelChoice.safeParse(fm?.[id]);
   return parsed.success ? parsed.data : undefined;
@@ -49,9 +44,9 @@ export async function getFeatureModelOverride(
 
 /** Resolve `id` to a concrete provider+model: workspace override, else registry default. */
 export async function resolveFeatureModel(
-  container: Container,
+  settings: SettingsReader,
   workspaceId: string,
   id: FeatureModelId,
 ): Promise<FeatureModelChoice> {
-  return (await getFeatureModelOverride(container, workspaceId, id)) ?? DEFAULTS[id];
+  return (await getFeatureModelOverride(settings, workspaceId, id)) ?? DEFAULTS[id];
 }

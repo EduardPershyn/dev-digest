@@ -14,22 +14,23 @@
  * `getUnresolvedReferences` and (via T1.3) `getCallerSignatures`. T2 fills in
  * the rank-driven methods. T3 unlocks `getCriticalPaths` etc.
  *
- * The constructor takes ONLY a Container. No astgrep / depgraph / tokenizer
- * deps are imported here — those land later and plug into this same shell.
+ * Onion: the constructor takes narrow PORTS (`RepoIntelDeps`) — store, git,
+ * codeIndex, depgraph, tokenizer, source parser, the enabled flag. No adapter
+ * (ast-grep, dependency-cruiser, tiktoken, Drizzle) is imported here; they are
+ * wired in the composition root (`container.repoIntelDeps()`).
  */
-import type { CodeSymbol, RepoRef } from '@devdigest/shared';
-import type { Container } from '../../platform/container.js';
-import { extractEndpoints } from '../../adapters/codeindex/extract.js';
-import {
-  parseImports,
-  parseInvocationHeads,
-  parseSymbols,
-  langForFile,
-} from '../../adapters/astgrep/index.js';
+import type { CodeIndex, CodeSymbol, GitClient, RepoRef } from '@devdigest/shared';
 import { readContainedFile } from '../../platform/contained-read.js';
 import { extname } from 'node:path';
-import { RepoIntelRepository, type FullSymbolRow } from './repository.js';
 import type {
+  IndexerDeps,
+  ParsedImport,
+  ParsedInvocationHead,
+  ParsedSymbol,
+  RepoIntelStore,
+} from './ports.js';
+import type {
+  FullSymbolRow,
   BlastCallerRow,
   BlastChangedSymbol,
   BlastResult,
@@ -45,14 +46,11 @@ import type {
 import {
   BFS_DEPTH,
   DEFAULT_REPO_MAP_TOKEN_BUDGET,
-  INDEX_JOB_KIND,
   INDEXER_VERSION,
   MAX_CALLERS_PER_SYMBOL,
-  REFRESH_JOB_KIND,
-  RESYNC_JOB_KIND,
   SUPPORTED_EXT,
 } from './constants.js';
-import { runFullIndex, type IndexPayload } from './pipeline/full.js';
+import { runFullIndex } from './pipeline/full.js';
 import { runIncremental } from './pipeline/incremental.js';
 
 /**
@@ -98,16 +96,25 @@ const PHANTOM_GLOBALS_ALLOWLIST: ReadonlySet<string> = new Set([
   'afterAll', 'afterEach', 'vi', 'jest',
 ]);
 
-export class RepoIntelService implements RepoIntel {
-  private readonly repo: RepoIntelRepository;
+/** Ports the repo-intel facade needs — wired in the composition root (`container.repoIntelDeps()`). */
+export interface RepoIntelDeps extends IndexerDeps {
+  store: RepoIntelStore;
+  git: Pick<GitClient, 'currentHead' | 'diffNameOnly' | 'sync'>;
+  codeIndex: Pick<CodeIndex, 'symbols' | 'references'>;
+  /** Global REPO_INTEL_ENABLED flag — off ⇒ every read degrades. */
+  repoIntelEnabled: boolean;
+}
 
-  constructor(private container: Container) {
-    this.repo = new RepoIntelRepository(container.db);
+export class RepoIntelService implements RepoIntel {
+  private readonly repo: RepoIntelStore;
+
+  constructor(private readonly deps: RepoIntelDeps) {
+    this.repo = deps.store;
   }
 
   // -------------------------------------------------------------------------
-  // Indexing — T2.2 worker. The job handlers (registered via
-  // registerIndexJobHandlers below) are the ASYNC entry; these methods are
+  // Indexing — T2.2 worker. The job handlers (registered in routes.ts) are
+  // the ASYNC entry; these methods are
   // SYNC-from-the-handler (they ARE the handler body). HTTP/Repo callers go
   // through `container.jobs.enqueue(INDEX_JOB_KIND, ...)` so the clone job
   // closes promptly and the index runs in the background.
@@ -120,7 +127,7 @@ export class RepoIntelService implements RepoIntel {
    * jobs already have their own time budget and don't want a second queue.
    */
   async indexRepo(repoId: string): Promise<IndexResult> {
-    return runFullIndex(this.container, this.repo, { repoId });
+    return runFullIndex(this.deps, this.repo, { repoId });
   }
 
   /**
@@ -129,7 +136,7 @@ export class RepoIntelService implements RepoIntel {
    * delegates to `runFullIndex` internally.
    */
   async refreshIndex(repoId: string): Promise<IndexResult> {
-    return runIncremental(this.container, this.repo, { repoId });
+    return runIncremental(this.deps, this.repo, { repoId });
   }
 
   /**
@@ -148,7 +155,7 @@ export class RepoIntelService implements RepoIntel {
     }
     const ref: RepoRef = { owner: repo.owner, name: repo.name };
     try {
-      await this.container.git.sync(ref, repo.defaultBranch);
+      await this.deps.git.sync(ref, repo.defaultBranch);
     } catch (err) {
       return {
         status: 'degraded',
@@ -158,28 +165,9 @@ export class RepoIntelService implements RepoIntel {
         reason: `sync_failed:${err instanceof Error ? err.message : String(err)}`,
       };
     }
-    return runIncremental(this.container, this.repo, { repoId });
+    return runIncremental(this.deps, this.repo, { repoId });
   }
 
-  /**
-   * Register the INDEX_JOB_KIND + REFRESH_JOB_KIND handlers on the JobRunner.
-   * Mirrors `RepoService.registerCloneJobHandler` so the registration is an
-   * explicit one-shot at app startup (`repoIntel/routes.ts` invokes this).
-   *
-   * The handlers swallow the IndexResult on purpose — JobRunner expects
-   * `Promise<void>`. Status/progress is observable via `repo_index_state`.
-   */
-  registerIndexJobHandlers(): void {
-    this.container.jobs.register(INDEX_JOB_KIND, async (payload) => {
-      await this.indexRepo((payload as IndexPayload).repoId);
-    });
-    this.container.jobs.register(REFRESH_JOB_KIND, async (payload) => {
-      await this.refreshIndex((payload as IndexPayload).repoId);
-    });
-    this.container.jobs.register(RESYNC_JOB_KIND, async (payload) => {
-      await this.resyncRepo((payload as IndexPayload).repoId);
-    });
-  }
 
   /**
    * ALWAYS works. If `repo_index_state` exists and has a row, returns it.
@@ -220,7 +208,7 @@ export class RepoIntelService implements RepoIntel {
   async getBlastRadius(repoId: string, changedFiles: string[]): Promise<BlastResult> {
     // T3: serve from the persistent index when it's built. Falls through to the
     // ripgrep best-effort below when the flag is off / index is absent.
-    if (this.container.config.repoIntelEnabled && changedFiles.length > 0) {
+    if (this.deps.repoIntelEnabled && changedFiles.length > 0) {
       const persistent = await this.tryPersistentBlast(repoId, changedFiles);
       if (persistent) return persistent;
     }
@@ -241,7 +229,7 @@ export class RepoIntelService implements RepoIntel {
 
     let allSymbols: CodeSymbol[];
     try {
-      allSymbols = await this.container.codeIndex.symbols(ref);
+      allSymbols = await this.deps.codeIndex.symbols(ref);
     } catch {
       return empty;
     }
@@ -264,7 +252,7 @@ export class RepoIntelService implements RepoIntel {
     for (const sym of changedSymbols) {
       let refs;
       try {
-        refs = await this.container.codeIndex.references(ref, sym.name);
+        refs = await this.deps.codeIndex.references(ref, sym.name);
       } catch {
         continue;
       }
@@ -290,7 +278,7 @@ export class RepoIntelService implements RepoIntel {
       for (const file of callerFiles) {
         const content = await readClone(repo.clonePath, file);
         if (!content) continue;
-        for (const e of extractEndpoints(content)) endpoints.add(e);
+        for (const e of this.deps.parser.extractEndpoints(content)) endpoints.add(e);
       }
     }
 
@@ -403,7 +391,7 @@ export class RepoIntelService implements RepoIntel {
       degraded: true,
       reason: 'no_data',
     };
-    if (!this.container.config.repoIntelEnabled) {
+    if (!this.deps.repoIntelEnabled) {
       return { ...degraded, reason: 'flag_off' };
     }
     const state = await this.repo.tryGetIndexState(repoId);
@@ -416,14 +404,14 @@ export class RepoIntelService implements RepoIntel {
 
   /** Percentile per path from `file_rank` (smart-diff / run-executor "top-N%"). */
   async getFileRank(repoId: string, paths: string[]): Promise<FileRankRow[]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     if (paths.length === 0) return [];
     return this.repo.getFileRankFor(repoId, paths);
   }
 
   /** Persistent symbol read-model (T2 columns) for the given files. */
   async getSymbolsInFiles(repoId: string, paths: string[]): Promise<SymbolRow[]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     if (paths.length === 0) return [];
     const rows = await this.repo.getSymbolRows(repoId, paths);
     return rows.map((r) => ({
@@ -455,7 +443,7 @@ export class RepoIntelService implements RepoIntel {
     changedFiles: string[],
     limit: number = MAX_CALLERS_PER_SYMBOL,
   ): Promise<SignatureRow[]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     if (changedFiles.length === 0) return [];
 
     const repo = await this.repo.getRepoBasics(repoId);
@@ -466,11 +454,11 @@ export class RepoIntelService implements RepoIntel {
     //    call sites, so chasing references for them just wastes work.
     const declaredSymbols = new Map<string, { file: string; kind: string }>();
     for (const file of changedFiles) {
-      if (!langForFile(file)) continue;
+      if (!this.deps.parser.supports(file)) continue;
       const source = await readClone(repo.clonePath, file);
       if (source == null) continue;
       try {
-        for (const s of parseSymbols(file, source)) {
+        for (const s of this.deps.parser.parseSymbols(file, source)) {
           if (s.kind !== 'function' && s.kind !== 'method' && s.kind !== 'class') continue;
           // Dual-emit (Class.method + method): only store the bare name; the
           // qualified form would double-count callers.
@@ -490,13 +478,13 @@ export class RepoIntelService implements RepoIntel {
     const seen = new Set<string>();
     // Cache caller-file astgrep parses so we don't re-parse the same file per
     // referenced symbol.
-    const callerSymbolsByFile = new Map<string, ReturnType<typeof parseSymbols>>();
+    const callerSymbolsByFile = new Map<string, ParsedSymbol[]>();
 
     for (const [symbolName, decl] of declaredSymbols) {
       if (out.length >= limit) break;
       let refs;
       try {
-        refs = await this.container.codeIndex.references(ref, symbolName);
+        refs = await this.deps.codeIndex.references(ref, symbolName);
       } catch {
         continue;
       }
@@ -507,7 +495,7 @@ export class RepoIntelService implements RepoIntel {
         // Parse the caller file once; reuse for further symbols in this loop.
         let callerSyms = callerSymbolsByFile.get(r.fromPath);
         if (callerSyms === undefined) {
-          if (!langForFile(r.fromPath)) {
+          if (!this.deps.parser.supports(r.fromPath)) {
             callerSymbolsByFile.set(r.fromPath, []);
             callerSyms = [];
           } else {
@@ -517,7 +505,7 @@ export class RepoIntelService implements RepoIntel {
               callerSyms = [];
             } else {
               try {
-                callerSyms = parseSymbols(r.fromPath, callerSrc);
+                callerSyms = this.deps.parser.parseSymbols(r.fromPath, callerSrc);
               } catch {
                 callerSyms = [];
               }
@@ -576,7 +564,7 @@ export class RepoIntelService implements RepoIntel {
    * NEVER throws — per-file parse errors are swallowed.
    */
   async getUnresolvedReferences(repoId: string, files: string[]): Promise<RefRow[]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     if (files.length === 0) return [];
 
     const repo = await this.repo.getRepoBasics(repoId);
@@ -591,13 +579,13 @@ export class RepoIntelService implements RepoIntel {
       const source = await readClone(repo.clonePath, file);
       if (source == null) continue;
 
-      let declared: ReturnType<typeof parseSymbols>;
-      let imports: ReturnType<typeof parseImports>;
-      let heads: ReturnType<typeof parseInvocationHeads>;
+      let declared: ParsedSymbol[];
+      let imports: ParsedImport[];
+      let heads: ParsedInvocationHead[];
       try {
-        declared = parseSymbols(file, source);
-        imports = parseImports(file, source);
-        heads = parseInvocationHeads(file, source);
+        declared = this.deps.parser.parseSymbols(file, source);
+        imports = this.deps.parser.parseImports(file, source);
+        heads = this.deps.parser.parseInvocationHeads(file, source);
       } catch {
         // Tree-sitter is lenient but a napi-level failure shouldn't blow up
         // the whole gate. Skip the file (= "no phantoms here" — conservative).
@@ -641,7 +629,7 @@ export class RepoIntelService implements RepoIntel {
     n: number,
     opts?: { exclude?: string[] },
   ): Promise<string[]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     if (n <= 0) return [];
     const exclude = opts?.exclude ?? [];
     const rows = await this.repo.getRankedPaths(repoId, Math.max(n * 10, 100));
@@ -661,7 +649,7 @@ export class RepoIntelService implements RepoIntel {
    * up to BFS_DEPTH hops. Pure read over `file_edges` + `file_rank`.
    */
   async getCriticalPaths(repoId: string): Promise<string[][]> {
-    if (!this.container.config.repoIntelEnabled) return [];
+    if (!this.deps.repoIntelEnabled) return [];
     const edges = await this.repo.getEdges(repoId);
     if (edges.length === 0) return [];
 

@@ -2,8 +2,23 @@
  * F1 — repos module constants (extracted from routes.ts; no behaviour change).
  */
 
+import { z } from 'zod';
+
 /** JobRunner kind for the asynchronous `git clone` job. */
 export const CLONE_JOB_KIND = 'clone';
+
+/**
+ * Payload enqueued for (and consumed by) the `clone` job. Job payloads come
+ * back out of the DB as `unknown`, so the handler parses with this schema.
+ * `url` is informational only — the clone URL is always rebuilt from owner/name.
+ */
+export const CloneJobPayload = z.object({
+  repoId: z.string(),
+  owner: z.string(),
+  name: z.string(),
+  url: z.string().optional(),
+});
+export type CloneJobPayload = z.infer<typeof CloneJobPayload>;
 
 /** Clone depth — shallow clone (latest commit only) keeps imports fast. */
 export const CLONE_DEPTH = 1;

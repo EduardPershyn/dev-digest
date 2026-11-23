@@ -25,8 +25,8 @@ name* says which ring a file is in, and `pnpm lint:arch` checks imports by file 
 
 | Ring (inner → outer) | Files | May import | Must not import |
 |---|---|---|---|
-| **Domain** — types, invariants, pure rules | `types.ts`, `constants.ts`, `helpers.ts`, other pure files (`status.ts`, `findings-summary.ts`); `@devdigest/shared` contracts; all of `reviewer-core/src` except `llm/` | other domain files, `@devdigest/shared`, `zod`, `platform/errors.ts` | `service`/`repository`/`routes`, `db/`, `adapters/`, `container`, Fastify, Drizzle, SDKs, `node:fs`/network |
-| **Application** — use cases, ports, transaction boundary | `service.ts`, `ports.ts`, orchestrators like `run-executor.ts` | domain, own `ports.ts`, port interfaces from `@devdigest/shared` | `db/` (schema, rows, client), `drizzle-orm`, Fastify, `container`, concrete `adapters/*`, SDKs |
+| **Domain** — types, invariants, pure rules | `types.ts`, `constants.ts`, `helpers.ts`, other pure files (`status.ts`, `findings-summary.ts`); `modules/_shared/records.ts` (entity records); `@devdigest/shared` contracts; all of `reviewer-core/src` except `llm/` | other domain files, `@devdigest/shared`, `zod`, `platform/errors.ts` | `service`/`repository`/`routes`, `db/`, `adapters/`, `container`, Fastify, Drizzle, SDKs, `node:fs`/network |
+| **Application** — use cases, ports, transaction boundary | `service.ts`, `ports.ts`, `modules/_shared/ports.ts` (`JobQueue`, `WarnLogger`), orchestrators like `run-executor.ts`, `repo-intel/pipeline/*` | domain, own `ports.ts`, port interfaces from `@devdigest/shared` | `db/` (schema, rows, client), `drizzle-orm`, Fastify, `container`, concrete `adapters/*`, SDKs |
 | **Infrastructure** — persistence & vendor adapters | `repository.ts`, `repository/*.repo.ts`; `src/adapters/**`; `src/db/**`; `reviewer-core/src/llm/` (fenced) | anything inward + its own tech (Drizzle, SDK) | `routes.ts`, other modules' internals |
 | **Delivery** — driving adapters + module wiring | `routes.ts` (HTTP, SSE endpoints, job-handler registration) | application, domain, `container`, `_shared/context.ts` | `db/`, `drizzle-orm`, SDKs |
 | **Composition root** | `src/app.ts`, `src/platform/container.ts` | everything | — (no business logic here) |
@@ -40,19 +40,21 @@ name* says which ring a file is in, and `pnpm lint:arch` checks imports by file 
 
 | You are writing… | Put it in | Notes |
 |---|---|---|
-| A SQL / Drizzle query, `$inferSelect` row type, pgvector search | `repository.ts` behind a port in `ports.ts` | map row → domain type *inside* the repository |
+| A SQL / Drizzle query, `$inferSelect` row type, pgvector search | `repository.ts` behind a port in `ports.ts` | the port speaks records (`_shared/records.ts`) / plain types, never row types |
 | A business rule, status calculation, score, filter | `helpers.ts` / a pure domain file | pure function; input → output |
 | "Load X, decide, save Y, call GitHub" | a method on `service.ts` | depends only on ports passed to its constructor |
 | A call to GitHub / git / an LLM / embeddings / ripgrep | adapter in `src/adapters/<tech>/`, port in `@devdigest/shared/adapters.ts` (or module `ports.ts` if private to one module) | services never import an SDK |
 | Request parsing, status codes, SSE streaming | `routes.ts` | zod `schema:` on the route; one service call per handler |
 | A background job body | service method; registration + payload parsing in `routes.ts` | payload is `unknown` → parse with zod first |
-| Constructing a repository/adapter/service | `routes.ts` wiring function, or a `Container` getter if shared | never inside a service |
+| Constructing a repository/adapter/service | `build<Feature>Service(c)` in `routes.ts`; a `Container` getter if shared (`agentsRepo`, `reviewRepo`, `settingsRepo`, `repoIntelDeps()`) | never inside a service |
 | A new review-engine step | `reviewer-core/src/**` as a pure function | the only side effect is the injected `LLMProvider` |
 
 ## Workflow for a new or changed backend feature
 
-1. **Domain first.** Write or reuse the types (prefer `@devdigest/shared` contracts; module
-   `types.ts` for internal ones) and the pure rules in `helpers.ts`. Unit-test them directly.
+1. **Domain first.** Write or reuse the types (API shapes: `@devdigest/shared` contracts;
+   persisted entities: `modules/_shared/records.ts`; module-internal: `types.ts`) and the
+   pure rules in `helpers.ts`. Unit-test them directly. A new table that services read
+   gets a record + a drift assertion in `db/rows.ts`.
 2. **Ports next.** In `ports.ts`, declare the interface the use case needs, in domain
    language (`findOpenByRepo(workspaceId, repoId): Promise<PullRequest[]>`, not
    `select().from(pullRequests)`). External-service ports shared across modules go in
@@ -74,18 +76,17 @@ name* says which ring a file is in, and `pnpm lint:arch` checks imports by file 
 Steps 1–3 come before 4–5 on purpose: writing the adapter first is how DB shapes leak
 into business code.
 
-## Legacy code (the baseline)
+## The baseline
 
-`server/.dependency-cruiser-known-violations.json` lists the violations that existed
-when the rules were introduced (routes querying Drizzle, services taking `Container`,
-helpers importing row types…). The policy:
+`server/.dependency-cruiser-known-violations.json` is **empty** — every module was brought
+to the standard on 2026-11-23. Keep it that way:
 
-- **Never add to it.** Don't run `pnpm lint:arch:baseline` to make your own change pass.
-- **Boy-scout rule.** When you touch a file that's in the baseline, fix that file's
-  violations if the change is reasonably local, then regenerate the baseline so it shrinks.
-  If the fix is large, say so to the user instead of silently skipping it.
-- **Don't copy legacy patterns.** Existing code like `pulls/routes.ts` is not a template.
-  Use `examples.md` as the template.
+- **Never add to it.** Don't run `pnpm lint:arch:baseline` to make your own change pass;
+  move the code to the right ring instead.
+- If a rule genuinely blocks a correct design, change the rule (with a reason in its
+  `comment`) and say so to the user — don't baseline around it.
+- Reference implementations: `repos` (small, jobs), `pulls` (GitHub + read aggregates),
+  `reviews` (cross-module port `AgentDirectory`, executor), `repo-intel` (adapter ports).
 
 ## Review checklist
 

@@ -7,7 +7,7 @@ Baseline: `server/.dependency-cruiser-known-violations.json`.
 ```bash
 cd server
 pnpm lint:arch            # fails only on violations NOT in the baseline
-pnpm lint:arch:baseline   # regenerate baseline — only after FIXING legacy violations
+pnpm lint:arch:baseline   # regenerate baseline — it is EMPTY; never use this to hide a new violation
 npx depcruise src ../reviewer-core/src --config .dependency-cruiser.cjs --no-ignore-known --output-type err   # see everything
 ```
 

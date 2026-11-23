@@ -22,6 +22,9 @@ postgres 3.4 · zod 3.25 · tsx · vitest 2.1 · testcontainers · pgvector (pg1
 - Services receive narrow ports via constructor `deps`; `routes.ts` builds them from
   `app.container`. Services never see `Container`, Drizzle or SDKs, never `new` adapters.
   Route tests inject mocks through `ContainerOverrides` (`src/adapters/mocks.ts`).
+- Services/helpers type persisted entities with records from `src/modules/_shared/records.ts`,
+  never `db/rows.ts`/`$inferSelect`; `db/rows.ts` asserts row ≡ record, so a column change
+  must update the record too.
 - Throw `AppError` subclasses (`src/platform/errors.ts`); the global handler shapes the envelope.
 - ESM: relative imports end in `.js`.
 

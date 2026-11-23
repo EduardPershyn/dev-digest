@@ -5,6 +5,7 @@ import { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
+import type { Container } from '../../platform/container.js';
 import { AgentsService } from './service.js';
 
 /** `/providers/:id` addresses a provider by name, not a uuid. */
@@ -67,9 +68,14 @@ const SetSkillsBody = z
     message: 'Provide skill_ids (set/reorder) or skill_id (link one)',
   });
 
+/** Module wiring — the only place the agents module turns the Container into ports. */
+export function buildAgentsService(c: Container): AgentsService {
+  return new AgentsService({ store: c.agentsRepo, llm: (provider) => c.llm(provider) });
+}
+
 export default async function agentsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
-  const service = new AgentsService(app.container);
+  const service = buildAgentsService(app.container);
 
   app.get('/agents', async (req) => {
     const { workspaceId } = await getContext(app.container, req);

@@ -21,8 +21,9 @@ export type ReviewRow = typeof t.reviews.$inferSelect;
 import * as reviewRepo from './repository/review.repo.js';
 import * as runRepo from './repository/run.repo.js';
 import * as pullRepo from './repository/pull.repo.js';
+import type { ReviewStore } from './ports.js';
 
-export class ReviewRepository {
+export class ReviewRepository implements ReviewStore {
   constructor(private db: Db) {}
 
   // ---- PR lookup (workspace-scoped) --------------------------------------

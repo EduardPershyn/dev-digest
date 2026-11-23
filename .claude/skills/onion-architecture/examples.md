@@ -1,8 +1,8 @@
-# Examples — bad (real DevDigest code) vs. good
+# Examples — bad (DevDigest code before the 2026-11-23 refactor) vs. good (current code)
 
 ## 1. Route doing persistence + orchestration
 
-**Bad** — `modules/polling/routes.ts` (today):
+**Bad** — `modules/polling/routes.ts` (before):
 
 ```ts
 app.post('/repos/:id/poll', { schema: { params: IdParams } }, async (req) => {
@@ -21,41 +21,49 @@ app.post('/repos/:id/poll', { schema: { params: IdParams } }, async (req) => {
 The HTTP adapter knows the schema, the GitHub client and the sync algorithm; none of it is
 testable without Postgres + Fastify.
 
-**Good:**
+**Good** (current `polling/*`):
 
 ```ts
 // polling/ports.ts
 export interface PollingStore {
-  findRepo(workspaceId: string, repoId: string): Promise<RepoRef & { id: string } | undefined>;
-  upsertPulls(workspaceId: string, repoId: string, pulls: RemotePull[]): Promise<number>;
+  getRepo(workspaceId: string, repoId: string): Promise<RepoRecord | undefined>;
+  upsertPull(workspaceId: string, repoId: string, pr: PrMeta): Promise<void>;
+  markPolled(repoId: string): Promise<void>;
 }
 
 // polling/service.ts
 export interface PollingServiceDeps { store: PollingStore; github: () => Promise<GitHubClient> }
 export class PollingService {
-  constructor(private deps: PollingServiceDeps) {}
-  async poll(workspaceId: string, repoId: string): Promise<{ synced: number }> {
-    const repo = await this.deps.store.findRepo(workspaceId, repoId);
+  constructor(private readonly deps: PollingServiceDeps) {}
+  async poll(workspaceId: string, repoId: string) {
+    const { store } = this.deps;
+    const repo = await store.getRepo(workspaceId, repoId);
     if (!repo) throw new NotFoundError('Repo not found');
     const gh = await this.deps.github();
-    const pulls = await gh.listPullRequests({ owner: repo.owner, name: repo.name });
-    return { synced: await this.deps.store.upsertPulls(workspaceId, repo.id, pulls) };
+    let synced = 0;
+    for (const pr of await gh.listPullRequests({ owner: repo.owner, name: repo.name })) {
+      await store.upsertPull(workspaceId, repo.id, pr);
+      synced++;
+    }
+    await store.markPolled(repo.id);
+    return { synced, reviewTriggered: false as const };
   }
 }
 
 // polling/routes.ts
-const buildPollingService = (c: Container) =>
-  new PollingService({ store: new PollingRepository(c.db), github: () => c.github() });
+export function buildPollingService(c: Container): PollingService {
+  return new PollingService({ store: new PollingRepository(c.db), github: () => c.github() });
+}
 
 app.post('/repos/:id/poll', { schema: { params: IdParams } }, async (req) => {
-  const { workspaceId } = await getContext(app.container, req);
+  const { workspaceId } = await getContext(container, req);
   return service.poll(workspaceId, req.params.id);
 });
 ```
 
 ## 2. Service pulling its own dependencies from the Container
 
-**Bad** — `modules/repos/service.ts` (today):
+**Bad** — `modules/repos/service.ts` (before):
 
 ```ts
 export class RepoService {
@@ -69,32 +77,32 @@ export class RepoService {
 Hidden dependencies (it can reach *anything* in the container), concrete Drizzle class,
 an import cycle risk through `container.ts`.
 
-**Good:**
+**Good** (current):
 
 ```ts
 export interface RepoServiceDeps {
   store: RepoStore;                       // port from ./ports.ts
-  git: GitClient;                         // port from @devdigest/shared
-  jobs: Pick<JobRunner, 'enqueue'>;
-  secrets: SecretsProvider;
+  git: Pick<GitClient, 'clone'>;          // only what the use case calls
+  jobs: JobQueue;                         // modules/_shared/ports.ts
 }
 export class RepoService {
-  constructor(private deps: RepoServiceDeps) {}
+  constructor(private readonly deps: RepoServiceDeps) {}
 }
 ```
 
 ## 3. Domain helper typed against DB rows
 
-**Bad** — `modules/repos/helpers.ts` (today) imports `* as t from '../../db/schema.js'` to
-type `toRepoDto(row)`; `reviews/helpers.ts` imports `FindingRow, PullRow` from `./repository.js`.
+**Bad** (before) — `modules/repos/helpers.ts` imported `* as t from '../../db/schema.js'` to
+type `toRepoDto(row)`; `reviews/helpers.ts` imported `FindingRow, PullRow` from `./repository.js`.
 
-**Good:** the repository maps `row → Repo` (the shared contract type) with a private
-`toRepo()`; helpers operate on `Repo`/`Finding` only. The domain ring then has no idea
-what a row is.
+**Good** (current): helpers take records — `toRepoDto(row: RepoRecord)`,
+`findingRowToDto(row: FindingRecord)`, `taskLine(pull: PullRecord)` — from
+`modules/_shared/records.ts`. The domain ring has no idea Drizzle exists; `db/rows.ts`
+asserts at compile time that each row type still equals its record.
 
 ## 4. reviewer-core staying pure
 
-**Good** (today) — the engine takes everything as arguments:
+**Good** (current) — the engine takes everything as arguments:
 
 ```ts
 const outcome = await reviewPullRequest(
@@ -113,8 +121,8 @@ const llm = new OpenRouterProvider(process.env.KEY!);        // engine choosing 
 
 ## 5. Job handler
 
-**Bad:** `service.registerCloneJobHandler()` — the use case registers itself on the runner
-and receives `payload: unknown` unchecked.
+**Bad** (before): `service.registerCloneJobHandler()` — the use case registered itself on
+the runner and cast `payload as CloneJobPayload` unchecked.
 
 **Good:** `routes.ts` registers and parses; the service method takes a typed `CloneJob`
 (see `references/jobs-and-sse.md`).

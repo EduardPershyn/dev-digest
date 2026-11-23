@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RepoIntelService } from '../src/modules/repo-intel/service.js';
+import { astGrepSourceParser } from '../src/adapters/astgrep/source-parser.js';
 import type { RepoBasics } from '../src/modules/repo-intel/repository.js';
 import type { IndexState } from '../src/modules/repo-intel/types.js';
 
@@ -20,16 +21,17 @@ function buildDegradedService(opts: {
   basics?: RepoBasics | null;
   indexStateRow?: IndexState | null;
 }): RepoIntelService {
-  const container = {
-    config: { repoIntelEnabled: opts.flag },
-    db: {} as never,
+  const deps = {
+    repoIntelEnabled: opts.flag,
+    store: {} as never, // replaced below
     // codeIndex is reached by getBlastRadius; we stub minimal behaviour.
     codeIndex: {
       symbols: async () => [],
       references: async () => [],
     } as never,
+    parser: astGrepSourceParser,
   } as never;
-  const svc = new RepoIntelService(container);
+  const svc = new RepoIntelService(deps);
   (svc as unknown as { repo: Record<string, unknown> }).repo = {
     getRepoBasics: async () => opts.basics ?? null,
     tryGetIndexState: async () => opts.indexStateRow ?? null,

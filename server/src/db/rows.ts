@@ -1,16 +1,42 @@
 import * as t from './schema.js';
+import type {
+  AgentRecord,
+  AgentVersionRecord,
+  FindingRecord,
+  PrFileRecord,
+  PullRecord,
+  RepoRecord,
+  ReviewRecord,
+} from '../modules/_shared/records.js';
 
 /**
- * Shared row types inferred from the Drizzle schema.
+ * Shared row types inferred from the Drizzle schema — INFRASTRUCTURE ONLY.
  *
- * They live here — next to the schema — rather than inside a module's
- * `repository.ts`, so cross-cutting consumers (ci, eval, performance,
- * conformance, compose, hooks, runs, reviews) can reference a row shape
- * WITHOUT importing another module's data layer. Each owning repository
- * re-exports its row from here to keep its public type API unchanged.
+ * Repositories use these. Everything inward (services, executors, helpers)
+ * types against the domain records in `modules/_shared/records.ts` instead
+ * (onion rule `db-only-in-repositories`). The assertions below pin each row to
+ * its record: if a migration changes a column, the build fails here rather
+ * than letting the domain shape drift.
  */
 export type AgentRow = typeof t.agents.$inferSelect;
 export type AgentVersionRow = typeof t.agentVersions.$inferSelect;
 export type FindingRow = typeof t.findings.$inferSelect;
 export type PullRow = typeof t.pullRequests.$inferSelect;
 export type AgentRunRow = typeof t.agentRuns.$inferSelect;
+export type RepoRow = typeof t.repos.$inferSelect;
+export type ReviewRow = typeof t.reviews.$inferSelect;
+export type PrFileRow = typeof t.prFiles.$inferSelect;
+
+// ---- row ⇔ record drift guard (compile-time only) ---------------------------
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Assert<T extends true> = T;
+
+export type _RowRecordDriftGuard = [
+  Assert<Same<RepoRow, RepoRecord>>,
+  Assert<Same<AgentRow, AgentRecord>>,
+  Assert<Same<AgentVersionRow, AgentVersionRecord>>,
+  Assert<Same<PullRow, PullRecord>>,
+  Assert<Same<PrFileRow, PrFileRecord>>,
+  Assert<Same<ReviewRow, ReviewRecord>>,
+  Assert<Same<FindingRow, FindingRecord>>,
+];

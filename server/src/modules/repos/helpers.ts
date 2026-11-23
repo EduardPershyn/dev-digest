@@ -1,5 +1,5 @@
 import { type Repo } from '@devdigest/shared';
-import * as t from '../../db/schema.js';
+import type { RepoRecord } from '../_shared/records.js';
 import { AppError } from '../../platform/errors.js';
 import {
   GITHUB_HOST,
@@ -105,8 +105,8 @@ export function canonicalCloneUrl(owner: string, name: string): string {
   return `https://${GITHUB_HOST}/${owner}/${name}.git`;
 }
 
-/** Map a persisted repo row to the API `Repo` DTO. */
-export function toRepoDto(row: typeof t.repos.$inferSelect): Repo {
+/** Map a persisted repo record to the API `Repo` DTO. */
+export function toRepoDto(row: RepoRecord): Repo {
   return {
     id: row.id,
     workspace_id: row.workspaceId,
