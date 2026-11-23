@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: reviews-client-page-boundaries
+expected_outcome: |
+  An architecture review that flags, as must-fix: the page marked 'use client' and
+  importing the DB client; fetching the app's own API route instead of reading data on the
+  server; synchronous params (removed in Next 16); passing a whole user record to a client
+  component; a Server Action with no authentication, no ownership check and no input
+  validation that accepts a whole entity object (including role); redirect() inside
+  try/catch; and middleware used as the auth boundary (and that Next 16 uses proxy.ts).
+  It proposes the fix structure (server page + DAL with server-only + DTO + thin action).

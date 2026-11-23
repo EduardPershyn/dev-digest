@@ -1,0 +1,11 @@
+schema_version: "1.1"
+name: designs-action-for-external-api
+expected_outcome: |
+  A design for the HTTP-API data-access model: a 'use server' action in the reviews feature
+  that validates input with Zod safeParse, forwards the session cookie to the Fastify API
+  from a server-only module (the backend authorizes), returns field errors as values,
+  revalidates with Next 15 APIs (revalidatePath/revalidateTag, not Next 16 updateTag),
+  keeps redirect (if any) outside try/catch, and invalidates the TanStack Query findings
+  key on the client after success. The form uses useActionState with useFormStatus in a
+  child component. No Route Handler is created just to proxy the mutation, and no database
+  or DAL-to-DB code is invented.

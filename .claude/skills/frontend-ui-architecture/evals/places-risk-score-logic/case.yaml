@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: places-risk-score-logic
+expected_outcome: |
+  A placement plan that puts the scoring and merge-blocked rules in one pure TypeScript
+  domain module inside a feature folder (not in components and not in a global utils/),
+  keeps the weight constants beside that module rather than in a global constants file,
+  puts the domain-aware badge in the feature's components (optionally built on a generic
+  components/ui Badge primitive), and explains that both screens import the same rule so
+  the logic is not duplicated.
