@@ -37,8 +37,12 @@ flowchart TD
 ```
 
 Cross-cutting chrome lives in `src/components/app-shell` (nav, breadcrumbs,
-`g`-then-key shortcuts). Pages are thin; feature logic sits in colocated
-`_components/<Name>/` folders, each with its own `*.test.tsx`.
+`g`-then-key shortcuts). Pages are thin Server Components that render one client
+`_components/<Name>View`; feature logic sits in colocated `_components/<Name>/`
+folders, each with its own `*.test.tsx`. Root `error.tsx`, `global-error.tsx` and
+`not-found.tsx` catch unexpected failures and unknown URLs. The layering rules
+(no `'use client'` on routes, no inline query keys, no `app/` imports from shared
+code, …) are enforced by `src/test/architecture.test.ts`.
 
 ## Testing
 

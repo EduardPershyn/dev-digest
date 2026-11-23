@@ -4,7 +4,7 @@
 
 import React from "react";
 import { usePathname } from "next/navigation";
-import { useRepos } from "./hooks";
+import { useRepos } from "./hooks/core";
 import type { Repo } from "./types";
 
 const RepoCtx = React.createContext<{
@@ -49,9 +49,9 @@ export function RepoProvider({ children }: { children: React.ReactNode }) {
   const activeRepo = list.find((r) => r.id === repoId) ?? null;
 
   return (
-    <RepoCtx.Provider value={{ repoId, setRepoId, repos: list, activeRepo, reposLoaded }}>
+    <RepoCtx value={{ repoId, setRepoId, repos: list, activeRepo, reposLoaded }}>
       {children}
-    </RepoCtx.Provider>
+    </RepoCtx>
   );
 }
 

@@ -33,7 +33,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     set(theme === "dark" ? "light" : "dark");
   }, [theme, set]);
 
-  return <ThemeCtx.Provider value={{ theme, toggle, set }}>{children}</ThemeCtx.Provider>;
+  return <ThemeCtx value={{ theme, toggle, set }}>{children}</ThemeCtx>;
 }
 
 export function useTheme() {

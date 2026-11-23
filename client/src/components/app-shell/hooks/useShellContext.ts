@@ -5,9 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ShellContext } from "@devdigest/ui";
-import { useTheme } from "../../../lib/theme";
-import { useActiveRepo } from "../../../lib/repo-context";
-import { usePulls, useDeleteRepo } from "../../../lib/hooks";
+import { useTheme } from "@/lib/theme";
+import { useActiveRepo } from "@/lib/repo-context";
+import { usePulls, useDeleteRepo } from "@/lib/hooks/core";
+import { countNeedsReview } from "@/lib/pull-status";
 import { activeKeyFor, toShellRepo } from "../helpers";
 
 interface ShellContextOptions {
@@ -72,7 +73,7 @@ export function useShellContext({ onOpenCommandPalette }: ShellContextOptions): 
       onRemoveRepo,
       // Sidebar badge = PRs that still NEED review, not the total PR count.
       // 0 → undefined so the badge hides entirely when nothing needs review.
-      prCount: pulls?.filter((p) => p.status === "needs_review").length || undefined,
+      prCount: countNeedsReview(pulls) || undefined,
     }),
     [
       pathname,

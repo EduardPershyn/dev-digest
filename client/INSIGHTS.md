@@ -41,6 +41,14 @@ _None yet._
   dismissed (client `summarizeFindings`), so it equals the run's accordion header. Ref:
   `client/src/components/findings-preview/FindingsPreview.tsx`
 
+- **2026-11-23** — `src/test/architecture.test.ts` enforces the client layering rules (B1, S4,
+  S5, L2, L6, S12, S14) by scanning `src/` minus `vendor/` and `*.test.*`. Tests still import
+  `messages/en/*.json` through long `../../…` paths on purpose: `messages/` is outside `src/`, so
+  `@/` can't reach it and the S14 check exempts targets outside `src/`. When adding a rule, prove
+  it fires with a throwaway violating file whose import really resolves inside `src/` — a planted
+  `../../../lib/api` from `app/settings/` resolves to `client/lib/` and passes silently.
+  Ref: `client/src/test/architecture.test.ts`
+
 ## Tool & Library Notes
 
 - **2026-11-20** — `pnpm exec vitest run "src/app/repos/[repoId]/..."` reports `No test files
@@ -86,6 +94,19 @@ _None yet._
   `components/findings-preview/`. 80/80 tests, typecheck clean, headless-Chrome check on
   `hack0xield/trading#1` matched the spec's expected rows. Ref:
   `client/src/app/repos/[repoId]/pulls/[number]/_components/RunHistory/RunHistory.tsx`
+
+- **2026-11-23** — Applied the `frontend-ui-architecture` skill. Five `'use client'` pages became
+  thin server `page.tsx` + client `_components/<Name>View` (HomeView, AgentEditorView,
+  PullsListView, PrDetailView; onboarding only lost the directive); per-domain query-key
+  factories + `usePrRunInvalidation` (the PR view no longer touches the QueryClient); the
+  `@/lib/hooks` barrel removed; PR-status rules moved to `src/lib/pull-status.ts` and
+  `filterAndSortPulls` (both tested); React 19 `<Ctx value>`; root `error.tsx`,
+  `global-error.tsx`, `not-found.tsx`; deep imports → `@/`. Verified: typecheck, 95/95 tests,
+  `next build` route table unchanged (same 8 routes, same ○/ƒ split), headless-Chrome pass over
+  12 routes against the live API with no new console errors. Deliberately not done: a
+  `features/` restructure (house layout is consistent) and Zod parsing in `apiFetch` (blocked by
+  the shared-barrel runtime import issue above). Ref:
+  `client/src/app/repos/[repoId]/pulls/[number]/_components/PrDetailView/PrDetailView.tsx`
 
 ## Open Questions
 

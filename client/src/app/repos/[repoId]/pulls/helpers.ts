@@ -19,3 +19,26 @@ export function relativeTime(iso: string | null | undefined): string {
   if (h < 24) return `${h}h`;
   return `${Math.round(h / 24)}d`;
 }
+
+export type PullListSort = "newest" | "oldest" | (string & {});
+
+/**
+ * The PR list's visible rows: status filter ("all" keeps everything), free-text
+ * match on title or number, then newest/oldest by `updated_at` (missing dates
+ * sort as oldest). Returns a new array; the input is not mutated.
+ */
+export function filterAndSortPulls(
+  pulls: readonly PrMeta[] | null | undefined,
+  { status, query, sort }: { status: string; query: string; sort: PullListSort },
+): PrMeta[] {
+  const q = query.trim().toLowerCase();
+  return (pulls ?? [])
+    .filter((p) => status === "all" || p.status === status)
+    .filter((p) => !q || p.title.toLowerCase().includes(q) || String(p.number).includes(q))
+    .slice()
+    .sort((a, b) => {
+      const ta = Date.parse(a.updated_at ?? "") || 0;
+      const tb = Date.parse(b.updated_at ?? "") || 0;
+      return sort === "oldest" ? ta - tb : tb - ta;
+    });
+}

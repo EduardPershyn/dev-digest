@@ -21,5 +21,15 @@
   "cost": {
     "tooltip": "Cost of this run (OpenRouter-reported or estimated)",
     "noData": "No cost data"
+  },
+  "errorPage": {
+    "title": "Something went wrong",
+    "body": "This page hit an unexpected error. Try again — if it keeps happening, check that the DevDigest API is running."
+  },
+  "notFoundPage": {
+    "title": "Page not found",
+    "body": "There's nothing at this address — the link may be stale or mistyped.",
+    "cta": "Go to DevDigest",
+    "breadcrumb": "Not found"
   }
 }

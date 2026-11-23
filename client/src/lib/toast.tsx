@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [push]);
 
   return (
-    <ToastCtx.Provider value={api}>
+    <ToastCtx value={api}>
       {children}
       <div
         style={{
@@ -122,6 +122,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           );
         })}
       </div>
-    </ToastCtx.Provider>
+    </ToastCtx>
   );
 }
