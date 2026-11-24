@@ -22,3 +22,47 @@
     transform: translateY(0);
   }
 }
+
+/* M2 — skill bodies are full Markdown documents (headings, lists, tables).
+   Tailwind preflight strips heading sizes and list markers; restore them only
+   inside skill previews so other Markdown surfaces keep their compact look. */
+.skill-md h1 { font-size: 1.35em; font-weight: 700; margin: 0 0 10px; }
+.skill-md h2 { font-size: 1.15em; font-weight: 650; margin: 16px 0 8px; }
+.skill-md h3,
+.skill-md h4 { font-size: 1em; font-weight: 650; margin: 14px 0 6px; }
+.skill-md ul { list-style: disc; padding-left: 1.4em; margin: 0 0 10px; }
+.skill-md ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 10px; }
+.skill-md li { margin: 2px 0; }
+.skill-md table { border-collapse: collapse; margin: 0 0 10px; font-size: 0.95em; }
+.skill-md th,
+.skill-md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+.skill-md pre { background: var(--code-bg); padding: 10px 12px; border-radius: 6px; overflow: auto; margin: 0 0 10px; }
+
+/* Native form controls follow the app theme. Without `color-scheme` the
+   browser draws a <select>'s open option list (and autofill, date pickers) in
+   its light system theme, while the options inherit the dark theme's light
+   text — near-invisible white-on-white. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* Focus state for the kit's inputs. TextInput/SelectInput draw the border on a
+   wrapper <div> and set `outline: none` inline on the control, so a focused
+   field looked identical to an idle one. `!important` is needed to beat the
+   inline border colour; the vendored kit itself stays untouched. */
+div:has(> select):hover {
+  border-color: var(--text-muted) !important;
+}
+div:has(> input:not([type="checkbox"], [type="radio"]):focus),
+div:has(> select:focus),
+textarea:focus {
+  border-color: var(--accent) !important;
+}

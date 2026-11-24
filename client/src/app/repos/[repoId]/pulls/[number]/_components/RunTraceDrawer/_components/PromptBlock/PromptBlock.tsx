@@ -20,7 +20,18 @@ const miniBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-export function PromptBlock({ label, text, color }: { label: string; text: string; color: string }) {
+export function PromptBlock({
+  label,
+  text,
+  color,
+  meta,
+}: {
+  label: string;
+  text: string;
+  color: string;
+  /** Optional right-hand note, e.g. a skill block's token count (M2). */
+  meta?: string;
+}) {
   const t = useTranslations("runs");
   const [open, setOpen] = React.useState(false);
   const [full, setFull] = React.useState(false);
@@ -36,6 +47,11 @@ export function PromptBlock({ label, text, color }: { label: string; text: strin
         <span style={s.promptDot(color)} />
         <span style={s.promptLabel}>{label}</span>
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {meta && (
+            <span className="mono" style={s.promptMeta}>
+              {meta}
+            </span>
+          )}
           <button
             type="button"
             title={t("trace.prompt.copy")}

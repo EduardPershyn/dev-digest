@@ -47,6 +47,19 @@ const nextConfig = {
       },
     ];
   },
+  /**
+   * The vendored `@devdigest/shared` barrel uses NodeNext-style `./x.js`
+   * specifiers for `.ts` files. Type-only imports are erased, but a runtime
+   * import (e.g. SKILL_NAME_PATTERN, M2) makes webpack resolve them — map
+   * `.js` → `.ts` first, falling back to real `.js` files (node_modules).
+   */
+  webpack(config) {
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+    };
+    return config;
+  },
 };
 
 export default withNextIntl(nextConfig);

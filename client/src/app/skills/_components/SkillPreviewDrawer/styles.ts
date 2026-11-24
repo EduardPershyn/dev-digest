@@ -1,0 +1,50 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for SkillPreviewDrawer. */
+export const s = {
+  body: { display: "flex", flexDirection: "column", gap: 18 } satisfies CSSProperties,
+  metaRow: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } satisfies CSSProperties,
+  label: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    marginBottom: 6,
+  } satisfies CSSProperties,
+  description: { fontSize: 14, color: "var(--text-primary)", lineHeight: 1.5 } satisfies CSSProperties,
+  hint: { fontSize: 12, color: "var(--text-muted)", marginBottom: 8 } satisfies CSSProperties,
+  rendered: {
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    padding: "14px 16px",
+    background: "var(--bg-surface)",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  notice: {
+    display: "flex",
+    gap: 10,
+    alignItems: "flex-start",
+    padding: "10px 12px",
+    borderRadius: 8,
+    background: "var(--warn-bg)",
+    color: "var(--warn)",
+    fontSize: 13,
+    lineHeight: 1.45,
+  } satisfies CSSProperties,
+  agents: { display: "flex", flexWrap: "wrap", gap: 6 } satisfies CSSProperties,
+  agentLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "3px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--border)",
+    fontSize: 13,
+    color: "var(--text-primary)",
+    textDecoration: "none",
+  } satisfies CSSProperties,
+  muted: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  enabledLabel: { display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13 } satisfies CSSProperties,
+  footer: { display: "flex", gap: 8, justifyContent: "space-between", width: "100%" } satisfies CSSProperties,
+} as const;

@@ -9,6 +9,9 @@ import type { Agent, ModelInfo, Provider, ReviewStrategy } from "@devdigest/shar
 export const agentKeys = {
   all: ["agents"] as const,
   detail: (id: string | null | undefined) => ["agent", id] as const,
+  /** Prefix of every agent's skill-link list (M2). */
+  skillsAll: ["agent-skills"] as const,
+  skills: (id: string | null | undefined) => ["agent-skills", id] as const,
   /** Prefix of every provider's model list — invalidate to refetch all pickers. */
   providerModelsAll: ["provider-models"] as const,
   providerModels: (provider: Provider | null | undefined) => ["provider-models", provider] as const,

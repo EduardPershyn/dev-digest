@@ -67,4 +67,36 @@ describe("A5 Run Trace drawer (smoke)", () => {
     // LiveLogStream renders its filter input
     expect(screen.getByPlaceholderText("Filter log…")).toBeInTheDocument();
   });
+
+  it("M2: renders each skill as its own prompt block with its token count", () => {
+    const original = TRACE.prompt_assembly;
+    TRACE.prompt_assembly = {
+      ...original,
+      skills: "joined section",
+      skill_blocks: [
+        { skill_id: "a", name: "branch-coverage-gaps", version: 2, type: "rubric", source: "manual", text: "<skill a>", tokens: 1200 },
+        { skill_id: "b", name: "mocking-and-flakiness", version: 1, type: "convention", source: "imported_file", text: "<skill b>", tokens: 340 },
+      ],
+    };
+    try {
+      renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+      fireEvent.click(screen.getByText("Prompt assembly"));
+      expect(screen.getByText("Skills — 2 blocks · +1,540 tokens")).toBeInTheDocument();
+      expect(screen.getByText("Skill · branch-coverage-gaps · v2")).toBeInTheDocument();
+      expect(screen.getByText("Skill · mocking-and-flakiness · v1")).toBeInTheDocument();
+      expect(screen.getByText("+1,200 tok")).toBeInTheDocument();
+      expect(screen.getByText("+340 tok")).toBeInTheDocument();
+      // the old single joined block is not shown when per-skill blocks exist
+      expect(screen.queryByText("Skills (dynamic)")).not.toBeInTheDocument();
+    } finally {
+      TRACE.prompt_assembly = original;
+    }
+  });
+
+  it("M2: falls back to the single Skills block for traces recorded before skill blocks", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.getByText("Skills (dynamic)")).toBeInTheDocument();
+    expect(screen.queryByTestId("skill-blocks")).not.toBeInTheDocument();
+  });
 });

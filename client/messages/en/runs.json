@@ -53,7 +53,10 @@
       "copy": "Copy",
       "fullscreen": "Open fullscreen",
       "search": "Search in this block…",
-      "noMatches": "No matches for “{q}”."
+      "noMatches": "No matches for “{q}”.",
+      "skillsHeader": "Skills — {count, plural, one {# block} other {# blocks}} · +{tokens} tokens",
+      "skillBlock": "Skill · {name} · v{version}",
+      "skillTokens": "+{tokens} tok"
     },
     "tools": {
       "args": "args",

@@ -56,6 +56,13 @@ export const s = {
   } satisfies CSSProperties,
 
   // ---- PromptBlock ----
+  skillsHeader: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--accent-text)",
+    margin: "8px 0 6px",
+  } satisfies CSSProperties,
+  promptMeta: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   promptRow: {
     borderRadius: 6,
     border: "1px solid var(--border)",

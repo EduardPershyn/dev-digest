@@ -89,9 +89,26 @@
   },
   "skills": {
     "title": "Skills",
-    "enabledCount": "{linked} of {total} enabled",
+    "enabledCount": "{enabled} of {total} enabled",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag to reorder.",
+    "attach": "Attach skill",
+    "attachEmpty": "Every skill is already attached.",
+    "manage": "Manage skills…",
+    "remove": "Detach {name}",
+    "moveUp": "Move {name} up",
+    "moveDown": "Move {name} down",
+    "dragHandle": "Drag to reorder {name}",
+    "enableLabel": "Include {name} in this agent’s prompt",
+    "disabledGlobally": "disabled globally",
+    "disabledGloballyHint": "This skill is switched off on the Skills page, so it is left out of every prompt.",
+    "missing": "deleted skill",
+    "empty": {
+      "title": "No skills attached",
+      "body": "Attach skills from the library. Each enabled skill becomes its own block in this agent’s prompt."
+    },
+    "noMatch": "No attached skill matches “{q}”.",
+    "loadError": "Could not load this agent’s skills."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

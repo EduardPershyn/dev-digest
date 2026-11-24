@@ -27,12 +27,14 @@ flowchart TD
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
 
-  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config)"]
+  AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills)"]
+  SKILLS["/skills<br/>grid · side preview · import"] --> SKILL["/skills/:id · /skills/new<br/>editor (config · preview · versions)"]
   SETTINGS["/settings/:section<br/>API keys · models"]
 
   PULLS -->|"GET /repos/:id/pulls · /repos/:id/index-state"| API
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
-  AGENTS -->|"/agents · /agents/:id"| API
+  AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
+  SKILLS -->|"/skills · /skills/:id · /skills/:id/versions<br/>POST /skills/import/preview"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 
@@ -43,6 +45,19 @@ folders, each with its own `*.test.tsx`. Root `error.tsx`, `global-error.tsx` an
 `not-found.tsx` catch unexpected failures and unknown URLs. The layering rules
 (no `'use client'` on routes, no inline query keys, no `app/` imports from shared
 code, …) are enforced by `src/test/architecture.test.ts`.
+
+**Skills (M2).** Skill rules shared by `/skills` and the agent Skills tab (slug check,
+link ordering, "reaches the prompt" = link AND skill enabled) live in `src/lib/skills.ts`;
+hooks in `src/lib/hooks/skills.ts` (incl. `useAgentSkills` / `useSetAgentSkills`, optimistic);
+the type chip is `src/components/skill-type-badge`. Skill bodies render through the
+`Markdown` primitive inside a `.skill-md` wrapper (`app/globals.css`), which restores
+heading/list styles Tailwind's preflight strips. Runtime imports from `@devdigest/shared`
+work because `next.config.mjs` maps `.js` → `.ts` (`extensionAlias`).
+
+**Form controls.** `app/globals.css` sets `color-scheme` per theme (so an open `<select>`
+list is drawn dark in the dark theme) and adds an accent border on focus for the kit's
+`TextInput` / `SelectInput` / `Textarea`, whose inline styles set `outline: none`. The
+vendored kit is untouched; extend these rules there rather than per screen.
 
 ## Testing
 

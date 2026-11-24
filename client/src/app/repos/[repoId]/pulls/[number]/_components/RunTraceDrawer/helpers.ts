@@ -21,3 +21,8 @@ export function traceLog(trace: RunTrace | undefined): LogLine[] {
 export function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
+
+/** Thousands-separated integer (token counts in the prompt assembly). */
+export function formatInt(n: number): string {
+  return Math.round(n).toLocaleString("en-US");
+}

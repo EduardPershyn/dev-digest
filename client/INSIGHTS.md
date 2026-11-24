@@ -48,6 +48,18 @@ _None yet._
   it fires with a throwaway violating file whose import really resolves inside `src/` — a planted
   `../../../lib/api` from `app/settings/` resolves to `client/lib/` and passes silently.
   Ref: `client/src/test/architecture.test.ts`
+- **2026-11-24** — The `Markdown` primitive renders headings and lists unstyled (no size, no
+  bullets/numbers): Tailwind preflight resets them and `vendor/ui` adds nothing back. For
+  document-like Markdown (skill bodies) wrap it in `className="skill-md"`; the rules live in
+  `client/src/app/globals.css`. Other surfaces were left compact on purpose.
+  Ref: `client/src/app/skills/_components/SkillPreviewTab/SkillPreviewTab.tsx`
+- **2026-11-24** — Native form-control theming lives in `src/app/globals.css`, not in the
+  kit: `color-scheme` per `[data-theme]`, `select option` colours, and an accent border on
+  focus via `div:has(> input:focus)` / `div:has(> select:focus)` with `!important` (the kit's
+  `TextInput`/`SelectInput` draw the border on a wrapper div with inline styles and set
+  `outline: none` on the control). Without `color-scheme`, Chrome draws an open `<select>`
+  list in its light theme while options inherit `--text-primary` → white on white. Ref:
+  `client/src/app/globals.css`
 
 ## Tool & Library Notes
 
@@ -60,6 +72,18 @@ _None yet._
   paths, yet the page renders and works (seen in headless Chrome on the PR page, Agent runs
   tab). Don't chase them when checking a refactor; judge by the rendered page.
   Whether a dev-server restart clears them was not verified. Ref: `client/src/components/findings-preview/`
+- **2026-11-24** — jsdom's `File`/`Blob` has no `arrayBuffer()` (`TypeError:
+  file.arrayBuffer is not a function` in tests). Read uploads with
+  `FileReader.readAsDataURL` instead; it works in jsdom and every browser.
+  Ref: `client/src/lib/skills.ts` (`fileToBase64`)
+- **2026-11-24** — UI checks that need a click (open a diff, press Delete) work without
+  Playwright: start `google-chrome --headless=new --remote-debugging-port=9333
+  --user-data-dir=<scratch>` and drive it from a Node 22 script over CDP (global
+  `WebSocket`; `Page.navigate` → `Runtime.evaluate` → `Page.captureScreenshot`). Call
+  `Emulation.setFocusEmulationEnabled {enabled:true}` first, or `:focus` styles never match in
+  a headless page (the window has no focus). Stub `window.confirm = () => true` in the
+  evaluated JS for confirm dialogs. Stop Chrome with `pgrep`/`kill <pid>`, not
+  `pkill -f <pattern>`, which also matches and kills the calling shell (exit 144).
 
 ## Recurring Errors & Fixes
 
@@ -69,7 +93,13 @@ _None yet._
   `import type` only; mirror any needed enum as a local `as const` tuple guarded by a type
   check + a Vitest test against the contract value (Vitest CAN import it). Why: the barrel
   uses NodeNext `.js` specifiers; Vite maps them to `.ts`, Next's webpack has no
-  `extensionAlias`. Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/constants.ts`
+  `extensionAlias`. Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/constants.ts` (superseded 2026-11-24)
+- **2026-11-24** — Same `Module not found: Can't resolve './contracts/findings.js'` (500 on
+  `/skills` in `next dev`) when M2 imported `SKILL_NAME_PATTERN` from `@devdigest/shared`.
+  Root-cause fix now in place: `client/next.config.mjs` `webpack()` sets
+  `resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"] }`, so value imports from the
+  barrel work in `next dev` and `next build` (both verified). The local-mirror workaround
+  is no longer needed. Ref: `client/next.config.mjs`
 
 ## Session Notes
 
@@ -107,6 +137,19 @@ _None yet._
   `features/` restructure (house layout is consistent) and Zod parsing in `apiFetch` (blocked by
   the shared-barrel runtime import issue above). Ref:
   `client/src/app/repos/[repoId]/pulls/[number]/_components/PrDetailView/PrDetailView.tsx`
+- **2026-11-24** — M2 Skills UI (spec `specs/M2-skills.md`): `/skills` grid + side drawer +
+  import modal, `/skills/:id|new` editor (Config / Preview / Versions), agent editor Skills
+  tab (attach, per-agent enable, drag + ↑/↓ reorder, optimistic PUT), per-skill blocks with
+  token counts in the trace drawer. Sidebar "SKILLS LAB" group needed a data edit in
+  `src/vendor/ui/nav.ts` (Sidebar reads `NAV` directly). Verified with headless Chrome
+  screenshots against the real API; `08-skills.flow.json` not run (no agent-browser).
+- **2026-11-24** — M2 skills follow-up from owner review: Versions tab **Changes** toggle with
+  an inline diff (LCS line diff + word-level metadata diff, any snapshot as base,
+  `SkillVersionsTab/helpers.ts`), a **Delete** button in the editor header (shared
+  `_components/DeleteSkillButton`, also used by the drawer), dark-theme fix for native selects
+  plus focus borders for all kit inputs, and the skill form's double spacing removed.
+  130/130 tests, typecheck clean; verified over CDP against the live API (diff open,
+  `color-scheme: dark`, focus border, delete → `/skills` + 404).
 
 ## Open Questions
 
