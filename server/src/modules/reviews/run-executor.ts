@@ -10,7 +10,7 @@ import type {
   RepoRecord,
   ReviewRecord,
 } from '../_shared/records.js';
-import type { ReviewStore } from './ports.js';
+import type { ResolvedSkill, ReviewStore, SkillResolver, TokenCounter } from './ports.js';
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
@@ -54,6 +54,10 @@ export interface ReviewRunDeps {
   llm: (provider: Provider) => Promise<LLMProvider>;
   git: Pick<GitClient, 'diff'>;
   repoIntel: Pick<RepoIntel, 'getCallerSignatures' | 'getRepoMap' | 'getFileRank'>;
+  /** M2 — the agent's enabled skills. Absent → no skills section (pre-M2 prompt). */
+  skills?: SkillResolver;
+  /** M2 — per-skill token counts in the trace. Absent → tokens recorded as 0. */
+  tokens?: TokenCounter;
 }
 
 export class ReviewRunExecutor {
@@ -202,6 +206,10 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // M2 — skills: only links that are enabled on this agent AND whose skill
+      // is enabled globally, in link order. Each becomes its own prompt block.
+      const skills = await this.resolveSkills(workspaceId, agent, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -219,6 +227,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // M2 — omitted when empty, so a skill-less agent's prompt is unchanged.
+        ...(skills.length > 0 ? { skills } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -289,7 +299,7 @@ export class ReviewRunExecutor {
           grounding,
           cost_usd: costUsd,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: this.withSkillTokens(outcome.assembly),
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -333,6 +343,37 @@ export class ReviewRunExecutor {
       this.runBus.complete(runId);
       throw err;
     }
+  }
+
+  /** M2 — resolve the agent's enabled skills; a lookup failure degrades to none. */
+  private async resolveSkills(
+    workspaceId: string,
+    agent: AgentRecord,
+    runLog: RunLogger,
+  ): Promise<ResolvedSkill[]> {
+    if (!this.deps.skills) return [];
+    try {
+      const skills = await this.deps.skills.enabledForAgent(workspaceId, agent.id);
+      runLog.info(
+        skills.length > 0
+          ? `skills: ${skills.length} attached (${skills.map((s) => s.name).join(', ')})`
+          : 'skills: none enabled for this agent',
+      );
+      return skills;
+    } catch (err) {
+      runLog.info(`skills: lookup failed — reviewing without skills (${(err as Error).message})`);
+      return [];
+    }
+  }
+
+  /** M2 — fill each skill block's token count (the engine leaves it 0). */
+  private withSkillTokens(assembly: RunTrace['prompt_assembly']): RunTrace['prompt_assembly'] {
+    const counter = this.deps.tokens;
+    if (!counter || !assembly.skill_blocks) return assembly;
+    return {
+      ...assembly,
+      skill_blocks: assembly.skill_blocks.map((b) => ({ ...b, tokens: counter.count(b.text) })),
+    };
   }
 
   /**

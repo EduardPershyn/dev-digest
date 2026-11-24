@@ -27,6 +27,8 @@ export function buildReviewService(c: Container): ReviewService {
     llm: (provider) => c.llm(provider),
     git: c.git,
     repoIntel: c.repoIntel,
+    skills: c.skillsRepo,
+    tokens: c.tokenizer,
   });
 }
 

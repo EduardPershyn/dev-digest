@@ -7,6 +7,8 @@ import type {
   PullRecord,
   RepoRecord,
   ReviewRecord,
+  SkillRecord,
+  SkillVersionRecord,
 } from '../modules/_shared/records.js';
 
 /**
@@ -26,6 +28,8 @@ export type AgentRunRow = typeof t.agentRuns.$inferSelect;
 export type RepoRow = typeof t.repos.$inferSelect;
 export type ReviewRow = typeof t.reviews.$inferSelect;
 export type PrFileRow = typeof t.prFiles.$inferSelect;
+export type SkillRow = typeof t.skills.$inferSelect;
+export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
 
 // ---- row ⇔ record drift guard (compile-time only) ---------------------------
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -39,4 +43,6 @@ export type _RowRecordDriftGuard = [
   Assert<Same<PrFileRow, PrFileRecord>>,
   Assert<Same<ReviewRow, ReviewRecord>>,
   Assert<Same<FindingRow, FindingRecord>>,
+  Assert<Same<SkillRow, SkillRecord>>,
+  Assert<Same<SkillVersionRow, SkillVersionRecord>>,
 ];

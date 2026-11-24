@@ -9,6 +9,11 @@ in the DB). The canonical, reviewable copies live next to this file:
 - [`general-reviewer.md`](./general-reviewer.md)
 - [`security-reviewer.md`](./security-reviewer.md)
 - [`performance-reviewer.md`](./performance-reviewer.md)
+- [`test-quality-reviewer.md`](./test-quality-reviewer.md) (M2 — detailed checklists live in skills)
+- [`api-contract-reviewer.md`](./api-contract-reviewer.md) (M2 — detailed checklists live in skills)
+
+Built-in **skills** (M2) live in [`../skills/`](../skills/) as importable Markdown with
+frontmatter; `server/src/db/seed-skills.ts` mirrors them for the seed.
 
 > The DB is the source of truth at run time. These files are the human-readable
 > originals — when you change a prompt, edit the file here **and** push it to the
@@ -38,7 +43,7 @@ delimiter-wrapped (`prompt.ts:104-122`):
 ```
 <task line, e.g. "Review PR #7 '…'">
 ## PR description        (untrusted, author-controlled, truncated to 4000 chars)
-## Skills / rules        (linked skill bodies)
+## Skills / rules        (one <skill> block per enabled linked skill, in link order)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)
 ## Project context       (untrusted spec chunks)
@@ -49,6 +54,25 @@ delimiter-wrapped (`prompt.ts:104-122`):
 Sections with no content are omitted. Everything repo- or author-derived is wrapped
 in `<untrusted source="…">…</untrusted>` so the model can tell instructions
 (system) from data (user).
+
+### Skill blocks (M2)
+
+Each skill that is enabled on the agent **and** enabled globally becomes its own block:
+
+```
+<skill name="branch-coverage-gaps" type="rubric" source="manual" version="2">
+Apply when: <the skill's description>
+
+<Markdown body>
+</skill>
+```
+
+Attributes carry only the validated slug / enums, and `</skill>` inside a body is
+escaped, so a skill cannot close its block or forge another. Skills are **instructions**
+(not `<untrusted>` data) — that is their job — so an imported skill is someone else's
+instructions in your prompt; the import flow makes the user confirm that. Write the
+description as a directive ("Use when … Flag …"): it is how the model decides whether
+the block applies. Skills never describe the JSON shape either.
 
 ## The output schema is NOT in the prompt
 

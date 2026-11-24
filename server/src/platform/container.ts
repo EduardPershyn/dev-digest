@@ -26,6 +26,9 @@ import { ConfigError } from './errors.js';
 import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import { SettingsRepository } from '../modules/settings/repository.js';
+import { SkillsRepository } from '../modules/skills/repository.js';
+import type { ArchiveReader } from '../modules/skills/ports.js';
+import { FflateZipReader } from '../adapters/archive/zip.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService, type RepoIntelDeps } from '../modules/repo-intel/service.js';
 import { RepoIntelRepository } from '../modules/repo-intel/repository.js';
@@ -77,6 +80,8 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _settingsRepo?: SettingsRepository;
+  private _skillsRepo?: SkillsRepository;
+  private _archiveReader?: ArchiveReader;
   private _repoIntel?: RepoIntel;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
@@ -110,6 +115,16 @@ export class Container {
   /** Workspace prefs — shared so any module can resolve its feature model. */
   get settingsRepo(): SettingsRepository {
     return (this._settingsRepo ??= new SettingsRepository(this.db));
+  }
+
+  /** M2 — skill library; also the reviews module's SkillResolver. */
+  get skillsRepo(): SkillsRepository {
+    return (this._skillsRepo ??= new SkillsRepository(this.db));
+  }
+
+  /** M2 — read-only in-memory zip access for skill import (never extracts to disk). */
+  get archiveReader(): ArchiveReader {
+    return (this._archiveReader ??= new FflateZipReader());
   }
 
   get codeIndex(): CodeIndex {

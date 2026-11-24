@@ -115,7 +115,14 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
+// `imported_file` (M2) = uploaded .md / .zip via the import preview flow.
+export const SkillSource = z.enum([
+  'manual',
+  'imported_file',
+  'imported_url',
+  'extracted',
+  'community',
+]);
 export type SkillSource = z.infer<typeof SkillSource>;
 
 export const Skill = z.object({
@@ -128,6 +135,10 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  /** M2 — number of agents this skill is linked to (any link state). */
+  agent_count: z.number().int().default(0),
+  created_at: z.string().nullish(),
+  updated_at: z.string().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
 
@@ -188,6 +199,8 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  /** M2 — linked skills that will reach the prompt (link AND skill enabled). */
+  skill_count: z.number().int().default(0),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -195,6 +208,8 @@ export const AgentSkillLink = z.object({
   agent_id: z.string(),
   skill_id: z.string(),
   order: z.number().int(),
+  /** M2 — per-agent switch; the skill reaches the prompt only if this AND skill.enabled. */
+  enabled: z.boolean().default(true),
 });
 export type AgentSkillLink = z.infer<typeof AgentSkillLink>;
 
@@ -212,6 +227,10 @@ export const AgentVersionConfig = z.object({
   ci_fail_on: CiFailOn,
   repo_intel: z.boolean(),
   skills: z.array(z.string()),
+  /** M2 — the full ordered link state at snapshot time (absent on older snapshots). */
+  skill_links: z
+    .array(z.object({ id: z.string(), enabled: z.boolean(), version: z.number().int() }))
+    .nullish(),
 });
 export type AgentVersionConfig = z.infer<typeof AgentVersionConfig>;
 

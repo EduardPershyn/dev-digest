@@ -44,6 +44,10 @@ _None yet._
   changes `repos`/`agents`/`agent_versions`/`pull_requests`/`pr_files`/`reviews`/`findings`,
   `pnpm typecheck` fails in `db/rows.ts` until the record is updated — that is intended.
   Ref: `server/src/db/rows.ts`
+- **2026-11-24** — `runOneAgent` calls `completeAgentRun(status: 'done')` BEFORE
+  `saveRunTrace`, so a test that waits with `waitForPrRuns` and then reads `run_traces`
+  can find no row yet. Poll for the trace row after the run is done.
+  Ref: `server/src/modules/reviews/run-executor.ts`, `server/test/skills.it.test.ts`
 
 ## Tool & Library Notes
 
@@ -53,6 +57,11 @@ _None yet._
   rule fires with a throwaway violating file before trusting a green run.
   Why: exclude removes modules from the cruise; doNotFollow only stops descent.
   Ref: `server/.dependency-cruiser.cjs`
+- **2026-11-24** — In a full `pnpm test` run every `*.it.test.ts` was skipped with "Docker
+  not available" although `docker info` worked in the shell; the same files passed when run
+  alone (`pnpm exec vitest run skills.it`). Likely `dockerAvailable()`'s 5 s `docker info`
+  timeout under parallel load (not proven). Run integration files on their own before
+  trusting a "skipped". Ref: `server/test/helpers/pg.ts` (`dockerAvailable`)
 
 ## Recurring Errors & Fixes
 
@@ -81,6 +90,13 @@ _None yet._
   feature-models now take `container.settingsRepo`. Note: `vitest` does not type-check —
   `test/` has 15 pre-existing tsc errors (adapters, prompt-callers, facade-degraded,
   settings-test-connection, agents-versions) unrelated to this change. Ref: `server/src/modules/`
+- **2026-11-24** — M2 skills backend (spec `specs/M2-skills.md`): `modules/skills`
+  (CRUD + versions + stateless import preview), `adapters/archive/zip.ts` (fflate streaming:
+  list headers, inflate only the core `.md`, byte-capped), migration `0011_m2_skills`
+  (`agent_skills.enabled`, unique `(workspace_id, name)`, full-text snapshots), `PUT
+  /agents/:id/skills` (transactional replace + agent version bump), executor feeds
+  `SkillResolver.enabledForAgent` into the engine and adds tiktoken counts to
+  `prompt_assembly.skill_blocks`. Seed adds Test Quality + API Contract reviewers and 4 skills.
 
 ## Open Questions
 

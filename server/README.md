@@ -71,8 +71,9 @@ flowchart TB
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
-  subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+  subgraph Agents["Agents & skills"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
+    skills["skills (M2)<br/>/skills · /skills/:id · /skills/:id/versions<br/>/skills/import/preview"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -106,7 +107,8 @@ through `SecretsProvider` (`~/.devdigest/secrets.json`, mode `0600`, with
 
 Migrations are **not** applied on boot — run `pnpm db:migrate` (pgvector is
 enabled by migration `0000`). `pnpm db:seed` is idempotent demo data
-(`acme/payments-api`, PR #482, the two built-in agents).
+(`acme/payments-api`, PR #482, the built-in agents incl. the M2 Test Quality /
+API Contract reviewers, and their built-in skills).
 
 ## Review context (non-obvious)
 
@@ -147,6 +149,34 @@ renders `null` as `—`.
   spend); `null` when no run has cost data. Runs from one `POST /pulls/:id/review` still
   share `agent_runs.batch_id`, but the total does not use it.
   Spec: `../specs/M1-cost-badge.md`.
+
+## Skills (M2)
+
+A skill is **text only** — `name` (workspace-unique kebab slug), `description` (the
+"apply when" directive), `type`, Markdown `body`. No tool, script, hook or model field
+exists; `SkillInput` / `SkillPatch` / `AgentSkillLinksInput` are `.strict()`, so unknown
+keys are a 4xx, not silently dropped. Spec: `../specs/M2-skills.md`.
+
+- `GET/POST /skills`, `GET/PUT/DELETE /skills/:id`, `GET /skills/:id/versions`. A change to
+  name/description/type/body bumps `version` and snapshots `skill_versions`; toggling
+  `enabled` does not. Imported skills (`source: imported_file`) are saved **disabled**
+  unless the body says `enabled: true`. Duplicate name → 409. `GET /skills/:id` also returns
+  `agents` and `prompt_block` (the exact `<skill>` block, rendered by reviewer-core).
+- `POST /skills/import/preview` `{ filename, content_base64 }` (`.md` / `.markdown` / `.zip`,
+  ≤ 1 MB) → `SkillImportPreview`. **Stateless** — saving is a separate `POST /skills`.
+  Zips are read in memory by `adapters/archive/zip.ts` (fflate streaming): entries are
+  listed from headers, only the chosen core `.md` is inflated (byte-capped while
+  streaming), everything else is reported in `ignored` and never decompressed, written
+  or run. Frontmatter keys other than name/description/type go to `dropped_frontmatter`.
+- `PUT /agents/:id/skills` `{ links: [{ skill_id, enabled }] }` replaces the agent's
+  ordered links (order = index) in one transaction and bumps the agent version
+  (`agent_versions.config_json.skills` = enabled ids, `skill_links` = full state). Every
+  id must be a skill of the workspace (422 otherwise). The legacy `POST` set/link forms go
+  through the same path.
+- **Prompt:** the executor resolves `SkillResolver.enabledForAgent` (link enabled **and**
+  skill enabled, by link order) and passes them to the engine; each becomes its own
+  `<skill name type source version>` block in `## Skills / rules`. The run trace gets
+  `prompt_assembly.skill_blocks[]` with a tiktoken count per block.
 
 ## PR-list findings
 

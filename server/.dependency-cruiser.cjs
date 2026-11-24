@@ -19,7 +19,7 @@ const REPOSITORY_FILES = '(^src/modules/[^/]+/(repository\\.ts|repository/|.*\\.
 const ROUTE_FILES = '^src/modules/[^/]+/routes\\.ts$';
 const DOMAIN_FILES = '^src/modules/[^/]+/(constants|types|helpers)\\.ts$';
 const VENDOR_SDKS =
-  'node_modules/(octokit|@octokit|openai|@anthropic-ai|simple-git|@vscode/ripgrep|@ast-grep|js-tiktoken|postgres)/';
+  'node_modules/(octokit|@octokit|openai|@anthropic-ai|simple-git|@vscode/ripgrep|@ast-grep|js-tiktoken|postgres|fflate)/';
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {

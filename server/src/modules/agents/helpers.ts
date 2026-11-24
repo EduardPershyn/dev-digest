@@ -9,7 +9,7 @@ import type { AgentRecord, AgentVersionRecord } from '../_shared/records.js';
  */
 
 /** Map a persisted agent row to the public `Agent` DTO. */
-export function toAgentDto(row: AgentRecord): Agent {
+export function toAgentDto(row: AgentRecord, skillCount = 0): Agent {
   return {
     id: row.id,
     name: row.name,
@@ -23,6 +23,7 @@ export function toAgentDto(row: AgentRecord): Agent {
     strategy: row.strategy as ReviewStrategy,
     ci_fail_on: row.ciFailOn as CiFailOn,
     repo_intel: row.repoIntel,
+    skill_count: skillCount,
   };
 }
 
@@ -83,4 +84,30 @@ export function isConfigChange(
     (patch.repoIntel !== undefined && patch.repoIntel !== existing.repoIntel) ||
     patch.outputSchema !== undefined
   );
+}
+
+/**
+ * Apply "link one skill" to an existing ordered list: move/insert it at `order`
+ * (default: append) and keep every other link's state. Pure.
+ */
+export function withLinkedSkill<T extends { skillId: string; enabled: boolean }>(
+  links: T[],
+  skillId: string,
+  order?: number,
+): { skillId: string; enabled: boolean }[] {
+  const rest = links
+    .filter((l) => l.skillId !== skillId)
+    .map((l) => ({ skillId: l.skillId, enabled: l.enabled }));
+  const existing = links.find((l) => l.skillId === skillId);
+  const at = Math.max(0, Math.min(order ?? rest.length, rest.length));
+  rest.splice(at, 0, { skillId, enabled: existing?.enabled ?? true });
+  return rest;
+}
+
+/** Duplicate ids in an ordered link list (a skill may appear once per agent). */
+export function duplicateIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const id of ids) (seen.has(id) ? dupes : seen).add(id);
+  return [...dupes];
 }

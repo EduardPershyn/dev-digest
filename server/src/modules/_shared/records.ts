@@ -49,6 +49,33 @@ export interface AgentVersionRecord {
   createdAt: Date;
 }
 
+/** M2 — a workspace skill: text-only review guidance (no tools / code). */
+export interface SkillRecord {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  type: 'rubric' | 'convention' | 'security' | 'custom';
+  source: 'manual' | 'imported_file' | 'imported_url' | 'extracted' | 'community';
+  body: string;
+  enabled: boolean;
+  version: number;
+  evidenceFiles: string[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** M2 — immutable snapshot of a skill's text config. */
+export interface SkillVersionRecord {
+  skillId: string;
+  version: number;
+  name: string | null;
+  description: string | null;
+  type: 'rubric' | 'convention' | 'security' | 'custom' | null;
+  body: string;
+  createdAt: Date;
+}
+
 export interface PullRecord {
   id: string;
   workspaceId: string;

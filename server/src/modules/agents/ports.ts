@@ -34,10 +34,17 @@ export interface UpdateAgent {
   enabled?: boolean;
 }
 
-/** A skill linked to an agent (with its order). Only the id is part of the port. */
+/** A skill linked to an agent (with its order + per-agent switch). */
 export interface LinkedSkill {
-  skill: { id: string };
+  skill: { id: string; enabled: boolean; version: number };
   order: number;
+  enabled: boolean;
+}
+
+/** One entry of an agent's ordered skill list (order = array index). */
+export interface SkillLinkInput {
+  skillId: string;
+  enabled: boolean;
 }
 
 /** Persistence of agents, their version snapshots and skill links. Workspace-scoped. */
@@ -52,6 +59,13 @@ export interface AgentStore {
   listVersions(agentId: string): Promise<AgentVersionRecord[]>;
   getVersion(agentId: string, version: number): Promise<AgentVersionRecord | undefined>;
   linkedSkills(agentId: string): Promise<LinkedSkill[]>;
-  linkSkill(agentId: string, skillId: string, order: number): Promise<void>;
-  setSkills(agentId: string, skillIds: string[]): Promise<void>;
+  /** Per agent: links whose link AND skill are enabled (what reaches the prompt). */
+  activeSkillCounts(workspaceId: string): Promise<Map<string, number>>;
+  /** Which of `skillIds` are skills of this workspace. */
+  existingSkillIds(workspaceId: string, skillIds: string[]): Promise<string[]>;
+  /**
+   * Replace the agent's ordered skill links in one transaction; bumps the
+   * agent version and snapshots it (a skill-set change is a config change).
+   */
+  replaceSkillLinks(workspaceId: string, agentId: string, links: SkillLinkInput[]): Promise<void>;
 }

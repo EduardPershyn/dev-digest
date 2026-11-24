@@ -95,3 +95,24 @@ export interface AgentDirectory {
   listEnabled(workspaceId: string): Promise<AgentRecord[]>;
   getById(workspaceId: string, id: string): Promise<AgentRecord | undefined>;
 }
+
+/** M2 — a skill as it should reach the prompt (link AND skill enabled), in link order. */
+export interface ResolvedSkill {
+  id: string;
+  name: string;
+  version: number;
+  type: string;
+  source: string;
+  description: string;
+  body: string;
+}
+
+/** Read access to an agent's enabled skills, owned by the reviews module (implemented by SkillsRepository). */
+export interface SkillResolver {
+  enabledForAgent(workspaceId: string, agentId: string): Promise<ResolvedSkill[]>;
+}
+
+/** Token counter for per-skill attribution in the run trace (tiktoken in prod). */
+export interface TokenCounter {
+  count(text: string): number;
+}

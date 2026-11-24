@@ -36,9 +36,28 @@ export const ToolCall = z.object({
 });
 export type ToolCall = z.infer<typeof ToolCall>;
 
+/**
+ * M2 — one skill block as it was rendered into the prompt. `text` is exactly the
+ * `<skill …>…</skill>` substring of the user message; `tokens` is filled in by
+ * the server (tokenizer), 0 when unknown.
+ */
+export const PromptSkillBlock = z.object({
+  skill_id: z.string(),
+  name: z.string(),
+  version: z.number().int(),
+  type: z.string(),
+  source: z.string(),
+  text: z.string(),
+  tokens: z.number().int(),
+});
+export type PromptSkillBlock = z.infer<typeof PromptSkillBlock>;
+
 export const PromptAssembly = z.object({
   system: z.string(),
+  /** The whole `## Skills / rules` section (kept for older consumers/traces). */
   skills: z.string().nullish(),
+  /** M2 — one entry per skill block, in prompt order; absent on older traces. */
+  skill_blocks: z.array(PromptSkillBlock).nullish(),
   memory: z.string().nullish(),
   specs: z.string().nullish(),
   /** Callers-of-changed-symbols digest (T1.3); null when absent. */
