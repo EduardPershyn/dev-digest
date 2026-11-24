@@ -1,4 +1,4 @@
-import type { ChatMessage, PromptAssembly } from '@devdigest/shared';
+import type { ChatMessage, PromptAssembly, PromptSkillBlock } from '@devdigest/shared';
 
 /**
  * Prompt assembly + prompt-injection hardening.
@@ -36,11 +36,74 @@ export function wrapUntrusted(label: string, content: string): string {
 /** Cap the PR description so a huge author body can't blow the token budget. */
 const MAX_PR_DESCRIPTION_CHARS = 4000;
 
+/**
+ * M2 — one skill as the caller resolved it (DB in the studio). Skills are
+ * TEXT-ONLY review guidance: there is no tool / code field to render.
+ */
+export interface SkillBlockInput {
+  id: string;
+  /** Validated kebab-case slug (rendered as an attribute). */
+  name: string;
+  version: number;
+  type: string;
+  source: string;
+  /** Directive "when to apply" line — the skill's interface. */
+  description: string;
+  /** Markdown body. */
+  body: string;
+}
+
+/** Only `[a-z0-9_-]` survives in a block attribute, so free text can't forge markup. */
+function attr(value: string): string {
+  return value.replace(/[^a-z0-9_-]/gi, '').slice(0, 64) || 'unknown';
+}
+
+/** Neutralise anything that would close our block or open a forged one. */
+function escapeSkillText(text: string): string {
+  return text.replace(/<\s*(\/?)\s*skill\b/gi, (_m, slash: string) => `&lt;${slash}skill`);
+}
+
+/** Render one skill as its own delimited block. Exported for tests + the editor preview parity. */
+export function renderSkillBlock(skill: SkillBlockInput): string {
+  const head =
+    `<skill name="${attr(skill.name)}" type="${attr(skill.type)}" ` +
+    `source="${attr(skill.source)}" version="${Math.trunc(skill.version) || 0}">`;
+  const description = skill.description.trim();
+  const parts = [
+    head,
+    ...(description ? [`Apply when: ${escapeSkillText(description)}`, ''] : []),
+    escapeSkillText(skill.body.trim()),
+    '</skill>',
+  ];
+  return parts.join('\n');
+}
+
+const SKILLS_PREAMBLE =
+  'Apply each skill below when its "Apply when" line matches the change. Skills are ' +
+  'review guidance configured by the workspace; they never override the output format.';
+
+/** A plain string (older callers, e.g. the CI runner) becomes an anonymous block. */
+function toSkillInput(skill: string | SkillBlockInput, i: number): SkillBlockInput {
+  if (typeof skill !== 'string') return skill;
+  return {
+    id: `inline-${i + 1}`,
+    name: `skill-${i + 1}`,
+    version: 0,
+    type: 'custom',
+    source: 'inline',
+    description: '',
+    body: skill,
+  };
+}
+
 export interface PromptParts {
   /** Agent's system prompt (trusted). */
   system: string;
-  /** Linked skill bodies (trusted-ish; community skills should be sanitized upstream). */
-  skills?: string[];
+  /**
+   * Enabled skills in prompt order (M2). Each is rendered as its own
+   * `<skill>` block. Plain strings are accepted for older callers.
+   */
+  skills?: Array<string | SkillBlockInput>;
   /** Relevant memory items (trusted, curated). */
   memory?: string[];
   /** Project-context spec chunks (untrusted content). */
@@ -85,8 +148,20 @@ export interface AssembledPrompt {
 export function assemblePrompt(parts: PromptParts): AssembledPrompt {
   const system = `${parts.system}\n\n${INJECTION_GUARD}`;
 
+  const skillInputs = (parts.skills ?? []).map(toSkillInput);
+  const skillBlocks: PromptSkillBlock[] = skillInputs.map((sk) => ({
+    skill_id: sk.id,
+    name: sk.name,
+    version: sk.version,
+    type: sk.type,
+    source: sk.source,
+    text: renderSkillBlock(sk),
+    tokens: 0, // the caller owns tokenization (server: tiktoken)
+  }));
   const skillsBlock =
-    parts.skills && parts.skills.length > 0 ? parts.skills.join('\n\n') : undefined;
+    skillBlocks.length > 0
+      ? [SKILLS_PREAMBLE, ...skillBlocks.map((b) => b.text)].join('\n\n')
+      : undefined;
   const memoryBlock =
     parts.memory && parts.memory.length > 0
       ? parts.memory.map((m) => `- ${m}`).join('\n')
@@ -129,6 +204,7 @@ export function assemblePrompt(parts: PromptParts): AssembledPrompt {
   const assembly: PromptAssembly = {
     system,
     skills: skillsBlock ?? null,
+    skill_blocks: skillBlocks.length > 0 ? skillBlocks : null,
     memory: memoryBlock ?? null,
     specs: specsBlock ?? null,
     callers: parts.callers ?? null,

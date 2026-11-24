@@ -31,12 +31,21 @@ model. `review/run.ts` orchestrates the run (single-pass by default).
 The engine also accepts optional prompt slots the **later milestones** start
 feeding it — `skills` (M2), `memory` (M7), `specs` (M5), `callers` — plus a
 `reduce()`/map-reduce path and a `toReview()` CI payload helper used from M6.
-In the starter the server passes only the diff, system prompt, and repo map; the
-extra slots are omitted, so `assemblePrompt` simply leaves those sections out.
+The server passes the diff, system prompt, repo map, callers and — since M2 — the
+agent's enabled skills; the other slots are omitted, so `assemblePrompt` leaves those
+sections out.
+
+**Skills (M2).** `skills` takes `SkillBlockInput[]` (`{ id, name, version, type, source,
+description, body }`; plain strings still work for older callers). `renderSkillBlock`
+turns each into its own `<skill name type source version>` block (description first as
+"Apply when: …"; `</skill>` in the text escaped; attributes reduced to `[a-z0-9_-]`).
+`assembly.skills` is the whole section and `assembly.skill_blocks[]` one entry per block
+whose `text` is exactly the substring the model saw; `tokens` is left 0 for the caller
+to fill (the server uses tiktoken).
 
 ## Public API
 
-Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` (prompt),
+Exported from `src/index.ts`: `assemblePrompt` / `wrapUntrusted` / `renderSkillBlock` (prompt),
 `groundFindings` / `groundingSummary` (grounding), `toJsonSchema` / `extractJson`
 / `parseWithRepair` (structured output), plus the `run` entrypoint and
 `reduce`. Contracts (`Review`, `Finding`, `Verdict`, …) come from
