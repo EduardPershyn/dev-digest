@@ -63,6 +63,13 @@ _None yet._
   importing `db` is NOT READY via `lint:arch` and the onion reviewer. Local `main` here was
   10 commits ahead of `origin/main`, which inflates the default (origin) PR diff. The report
   notes this; use `--base-ref main` to review only the branch.
+- **2026-11-24** — M2 Skills shipped across server / reviewer-core / client / e2e (spec
+  `specs/M2-skills.md`). Skills are text only (strict Zod bodies, no tool fields); each
+  enabled skill is its own `<skill>` block in the prompt and in the trace. Experiment
+  fixtures + procedure: `specs/M2-skills/experiments/README.md`; real LLM runs and their
+  results are still to be recorded there. Built-in skill sources: `docs/skills/*.md`
+  (mirrored by `server/src/db/seed-skills.ts`); import demo archive:
+  `docs/skills-samples/test-smells-skill.zip`.
 
 ## Open Questions
 

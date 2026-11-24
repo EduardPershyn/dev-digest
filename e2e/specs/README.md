@@ -14,3 +14,4 @@ runs only `*.flow.json`, so Markdown here is ignored by the runner. Flow format:
 | `05-pr-diff.flow.json` | PR detail Files changed tab renders the seeded diff |
 | `06-onboarding.flow.json` | Onboarding add-repository screen renders |
 | `07-settings.flow.json` | Settings renders the API Keys and Feature Models sections |
+| `08-skills.flow.json` | Skills grid → side preview → an agent's Skills tab (M2) |
