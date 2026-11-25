@@ -34,7 +34,14 @@ _None yet._
   (`children.length === 0`) whose `textContent` includes X, so it cannot click a link or
   button that also holds an icon (`<a><svg/>Name</a>`): it fails with no match. Use
   `find role link|button click --name X` (accessibility tree; icons add nothing to the name).
-  Ref: `e2e/specs/08-skills.flow.json`, agent-browser `handle_semantic_locator`
+  Ref: `e2e/specs/08-skills.flow.json`, agent-browser `handle_semantic_locator` (superseded 2026-11-25)
+- **2026-11-25** — agent-browser clicks at screen coordinates and does not wait for the
+  element to stop moving (unlike Playwright). An element inside the kit `Drawer` (200 ms
+  `ddslidein`) clicked right after it appears gets a click that misses, so `✓ Done` is
+  printed but nothing happens (here: no navigation, `wait --url tab=skills` timed out).
+  Add `["wait", "500"]` before clicking inside a drawer, then assert with `wait --url`.
+  Reproduced locally with agent-browser 0.44.0 + system Chrome; 3/3 passes with the wait.
+  Ref: `e2e/specs/08-skills.flow.json`, `client/src/vendor/ui/kit/Drawer.tsx:37`
 
 ## Recurring Errors & Fixes
 
