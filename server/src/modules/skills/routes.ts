@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import {
   SKILL_IMPORT_MAX_BYTES,
@@ -14,12 +15,12 @@ import { SkillsService } from './service.js';
 
 /**
  * M2 — skills module (specs/M2-skills.md).
- *   GET    /skills                  → library (workspace-scoped, with agent_count)
+ *   GET    /skills                  → library (workspace-scoped, with used_by_agents)
  *   GET    /skills/:id              → one skill + the agents using it
  *   POST   /skills                  → create (manual, or a confirmed import)
  *   PUT    /skills/:id              → update / toggle enabled (versions text config)
  *   DELETE /skills/:id              → delete (links cascade)
- *   GET    /skills/:id/versions     → snapshots, newest first
+ *   GET    /skills/:id/history      → snapshots, newest first, at most `limit`
  *   POST   /skills/import/preview   → parse an upload → draft. STORES NOTHING.
  *
  * Bodies are `.strict()` zod schemas: a skill has no tools/scripts fields and
@@ -28,6 +29,8 @@ import { SkillsService } from './service.js';
 
 /** base64 inflates by 4/3; leave headroom for the JSON envelope. */
 const IMPORT_BODY_LIMIT = Math.ceil((SKILL_IMPORT_MAX_BYTES * 4) / 3) + 64 * 1024;
+
+const HistoryQuery = z.object({ limit: z.coerce.number().int().positive().max(100) });
 
 export function buildSkillsService(c: Container): SkillsService {
   return new SkillsService({ store: c.skillsRepo, archive: c.archiveReader, tokens: c.tokenizer });
@@ -70,11 +73,11 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
     return { ok: true };
   });
 
-  app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
+  app.get('/skills/:id/history', { schema: { params: IdParams, querystring: HistoryQuery } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     const versions = await service.listVersions(workspaceId, req.params.id);
     if (!versions) throw new NotFoundError('Skill not found');
-    return versions;
+    return versions.slice(0, req.query.limit);
   });
 
   app.post(

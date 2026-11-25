@@ -19,7 +19,7 @@ export function toSkillDto(row: SkillRecord, agentCount = 0): Skill {
     enabled: row.enabled,
     version: row.version,
     evidence_files: row.evidenceFiles ?? null,
-    agent_count: agentCount,
+    used_by_agents: agentCount,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
