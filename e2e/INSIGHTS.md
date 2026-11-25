@@ -30,6 +30,11 @@ _None yet._
   (section labels, `SectionLabel`, `SeverityBadge`) never matches its i18n string. `08-skills`
   timed out on `wait --text "Attached to"` (rendered "ATTACHED TO"). Wait for text that is not
   transformed. Ref: vercel-labs/agent-browser `cli/src/native/actions.rs` (~L9855)
+- **2026-11-25** — `agent-browser find text X click` only considers **leaf** elements
+  (`children.length === 0`) whose `textContent` includes X, so it cannot click a link or
+  button that also holds an icon (`<a><svg/>Name</a>`): it fails with no match. Use
+  `find role link|button click --name X` (accessibility tree; icons add nothing to the name).
+  Ref: `e2e/specs/08-skills.flow.json`, agent-browser `handle_semantic_locator`
 
 ## Recurring Errors & Fixes
 
