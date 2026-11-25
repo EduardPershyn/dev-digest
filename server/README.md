@@ -74,6 +74,7 @@ flowchart TB
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
     skills["skills (M2)<br/>/skills · /skills/:id · /skills/:id/versions<br/>/skills/import/preview"]
+    conventions["conventions (M2)<br/>/repos/:id/conventions · /extract<br/>/conventions/:cid · /skill-draft"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -177,6 +178,50 @@ keys are a 4xx, not silently dropped. Spec: `../specs/M2-skills.md`.
   skill enabled, by link order) and passes them to the engine; each becomes its own
   `<skill name type source version>` block in `## Skills / rules`. The run trace gets
   `prompt_assembly.skill_blocks[]` with a tiktoken count per block.
+
+## Conventions (M2)
+
+The Conventions Extractor proposes house rules from a repo's code; the user curates them
+and saves the accepted ones as a normal skill. Spec: `../specs/M2-conventions.md`.
+Module: `modules/conventions/`.
+
+- `GET /repos/:id/conventions` → `ConventionList` (pending → accepted → rejected, then
+  confidence; `last_scan_at` = newest candidate, `null` = never scanned).
+- `POST /repos/:id/conventions/extract` → `ConventionExtractResult` (`stats` + `usage`).
+  **Synchronous, one model call.** 409 when the repo is not cloned or not indexed
+  (`getConventionSamples` returned nothing) or an extraction is already running for it
+  (in-memory per-repo lock, one API process). 502 when the model call fails or returns an
+  invalid shape, and then **nothing is written**.
+- `PUT /repos/:id/conventions/:conventionId` `{ status?, rule? }` (strict; evidence is not
+  editable). Writes `status`, the legacy `accepted` mirror and `updated_at` together.
+- `POST /repos/:id/conventions/skill-draft` `{ convention_ids? }` → `ConventionSkillDraft`.
+  **Stateless**, built from rows with `status = 'accepted'` only. Other ids are ignored;
+  none accepted → 422. Name `repo-conventions`, or the first free `repo-conventions-N`.
+  Saving is `POST /skills` with `source: 'extracted'`, which is accepted only with
+  `type: 'convention'` and saved disabled unless `enabled` is sent.
+
+**Sampling (code, not a model step):** config files (ESLint / TS / Prettier / EditorConfig)
+from the clone root and one directory level below it (max 6), then the top 12
+`getConventionSamples` paths, all read with `readContainedFile`. Each file is cut on a line
+boundary at 8,000 chars, with an 80,000-char total. Every file is its own
+`<untrusted source="file:<path>">` block. Already accepted or rejected rules are listed
+as "do not repeat".
+
+**Model:** the `conventions` feature model (`resolveFeatureModel`), `completeStructured`
+with `maxRetries: 0`, so the adapters' repair re-prompts never add a second call.
+Instructions: `src/prompts/conventions.system.md`.
+
+**Evidence validation (`evidence.ts`, pure):** the cited path must be one of the files
+sent. The snippet must have no `...` / `…` elision, at least 10 non-space chars and at most
+30 lines, and its trimmed non-blank lines must appear contiguously in the sent text
+(whitespace-tolerant). Survivors store the file's **verbatim** lines, a 1-based line range
+and the clone's HEAD sha (`evidence_sha`, for a stable GitHub permalink). Failures are
+counted and logged, never stored.
+
+**Re-scan:** one transaction replaces the repo's `pending` rows. A new candidate is skipped
+when its normalized rule equals a decided one, or when it cites an overlapping line range
+of the same file **in the same category** (`dedupe.ts`; the category condition lets one
+handler back several different conventions).
 
 ## PR-list findings
 

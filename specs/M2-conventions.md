@@ -72,13 +72,13 @@ What exists on `main` (do not rebuild):
 | Snippet matching | Line-based and whitespace-tolerant: compare trimmed, non-blank lines; the snippet's lines must appear **contiguously and in order** in the file. The stored snippet is then **re-sliced from the file** (original indentation) and the line range recorded, so what the UI shows is verbatim code. Snippets containing `...`/`…` placeholders, under 10 non-space chars, or over 30 lines are rejected. |
 | "Model called exactly once" | `completeStructured` with `maxRetries: 0` (the adapters default to 2 repair re-prompts, which would be extra calls). Invalid output → the run fails with a clear error and nothing is written. |
 | Model | `resolveFeatureModel(settings, ws, 'conventions')`. The registry default (`gpt-5.4`) is expensive, so the verification step sets a cheap model in **Settings → Feature models → Conventions** (e.g. the OpenRouter DeepSeek flash model the seeded agents use). The registry default is not changed here. |
-| Re-scan | In one transaction: delete the repo's `pending` rows, insert the new validated candidates. A new candidate is skipped when its normalized rule (lower-case, collapsed whitespace, no trailing punctuation) equals an existing accepted/rejected rule, **or** it cites the same path with an overlapping line range. Existing accepted/rejected rules are also given to the model as "already decided, do not repeat". |
+| Re-scan | In one transaction: delete the repo's `pending` rows, insert the new validated candidates. A new candidate is skipped when its normalized rule (lower-case, collapsed whitespace, no trailing punctuation) equals an existing accepted/rejected rule (or one already kept from the same batch), **or** it cites the same path with an overlapping line range **and the same category**. The category condition was added during implementation: without it, one route handler that backs several different conventions (params, 404 body, money) kept only the first. Existing accepted/rejected rules are also given to the model as "already decided, do not repeat". |
 | Draft name | `repo-conventions` as the plan requires. If that name is taken in the workspace, `repo-conventions-2`, `-3`, … so a second skill can be made (P3). |
 | Draft built where? | **Server**, from DB rows with `status = 'accepted'` (`POST /repos/:id/conventions/skill-draft`, stateless like the import preview). Rejected/pending ids passed by the client are ignored, so "rejected never in the skill" is enforced and tested on the server. The user can still edit the body before saving. |
 | Skill type / source | Modal shows type as a fixed `convention` chip (not a select). `POST /skills` accepts `source: 'extracted'` only with `type: 'convention'` (422 otherwise). |
 | Enabled by default? | **Off**, like imports: the server already defaults `enabled` to `source === 'manual'`. The modal has an *Enabled* toggle with the hint "Off by default — review the merged body before it reaches an agent's prompt." |
 | Trust level | Sampled file contents are **untrusted data** in the extraction prompt (`wrapUntrusted`, one block per file). The resulting skill is an instruction (M2 decision) and becomes one only after the user reviews and saves it. |
-| GitHub link | `https://github.com/<full_name>/blob/<default_branch>/<path>#L<start>-L<end>`, computed on the server into `evidence_url`. See Open questions on line drift. |
+| GitHub link | `https://github.com/<full_name>/blob/<sha>/<path>#L<start>-L<end>`, computed on the server into `evidence_url`. `<sha>` is the clone's HEAD when the evidence was read (`evidence_sha`, per row), so the link does not drift; rows without one fall back to `default_branch`. |
 
 ## Design
 
@@ -104,12 +104,18 @@ flowchart LR
 On `conventions`:
 - `status text NOT NULL DEFAULT 'pending'` (Drizzle text enum `pending|accepted|rejected`).
 - `category text` (nullable), `evidence_start_line integer`, `evidence_end_line integer`.
+- `evidence_sha text` (nullable): the clone's HEAD when the evidence was read (GitHub permalink).
 - `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`.
+- Backfill: `status = 'accepted'` where `accepted = true` (no rows today; keeps old data consistent).
 - Index `conventions_repo_idx (repo_id)`.
 
 No new table. `accepted` stays.
 
-### Contracts: `contracts/knowledge.ts` + `contracts/skills.ts`, **both** shared copies
+### Contracts: `contracts/knowledge.ts` + new `contracts/conventions.ts` + `contracts/skills.ts`, **both** shared copies
+
+`ConventionStatus` / `ConventionCandidate` stay in `knowledge.ts`. The rest is in
+`conventions.ts`, because `ConventionSkillDraft` needs `SkillName` from `skills.ts`, which
+already imports `knowledge.ts`, so putting it there would create an import cycle.
 
 ```ts
 ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
@@ -173,8 +179,8 @@ SkillInputSource = z.enum(['manual', 'imported_file', 'extracted']);
 |---|---|---|
 | `routes.ts` | delivery | Fastify plugin; Zod-parses params/bodies; builds `ConventionsService` from the container like `skills/routes.ts` does. Registered in `modules/index.ts`. |
 | `service.ts` | application | `extract`, `list`, `update`, `skillDraft`. Orchestrates ports only. |
-| `ports.ts` | application | `ConventionStore`, `RepoLookup` (`clonePath`, `fullName`, `defaultBranch`), `SampleSource` (`getConventionSamples`), `RepoFileReader` (`read(clonePath, rel)`, `listRootConfigs(clonePath)`), `ConventionModel` (`resolve(ws)` → `{ llm, model }`). |
-| `repository.ts` | infrastructure | Drizzle `ConventionStore`: `listByRepo`, `getById(ws, repoId, id)`, `update`, `replacePending(repoId, rows)` (transaction), `decided(repoId)`. Always filters by `workspace_id`. |
+| `ports.ts` | application | `ConventionStore` (incl. the workspace-scoped `findRepo`), `SampleSource` (`getConventionSamples`), `RepoCheckout` (`read`, `list` a directory, `head` sha; wired from `readContainedFile` / `listContainedDir` / `git.currentHead`), `ConventionModel` (`resolve(ws)` → `{ llm, model }`), `SkillNameSource` (taken names), `systemPrompt()` and a logger. Config-file selection is pure (`pickConfigPaths`); only directory listing is I/O. |
+| `repository.ts` | infrastructure | Drizzle `ConventionStore`: `findRepo`, `listByRepo`, `update(ws, repoId, id, patch)` (404 = no row), `replacePending(ws, repoId, rows)` (transaction). Decided rows are filtered from `listByRepo` in the service. Always filters by `workspace_id`. |
 | `sampling.ts` | domain (pure) | `CONFIG_FILE_PATTERNS`; `buildExtractionInput(files, decidedRules)` → per-file truncation + total budget → messages. |
 | `evidence.ts` | domain (pure) | `locateSnippet(file, snippet)` → `{ start, end, verbatim } \| null`; `validateCandidates(cands, filesByPath)` → `{ valid, rejected[] with reason }`. |
 | `dedupe.ts` | domain (pure) | `normalizeRule`; `dropDuplicates(valid, decided)`. |
@@ -319,7 +325,8 @@ which invalidates `skills`.
     marker, `~N tokens` = chars/4).
   - Footer: **Cancel** (closes and discards, with nothing stored) · **Create skill** →
     `POST /skills { name, description, type: 'convention', source: 'extracted', body, enabled }`
-    → toast `Saved as v1 · added to Skills Lab` with a link to `/skills/<id>`. The modal closes;
+    → toast `Saved <name> as v1 · added to Skills Lab`, plus an inline banner on the page with
+    an **Open skill** link to `/skills/<id>` (the kit toast takes plain text only). The modal closes;
     conventions keep their status (another skill can be made from a different subset).
 
 **i18n**: all page text in `client/messages/en/conventions.json`. Keep existing keys; add
@@ -430,12 +437,12 @@ Verification of these criteria is done by the owner (manual UI + real LLM runs).
 
 ## Open questions
 
-1. **Line drift in GitHub links.** Links use the default branch, so after new pushes the
-   `#L` anchor can point at moved code. A permalink needs the clone's commit SHA at
-   extraction time (e.g. `repo_index_state.last_indexed_sha`, stored per row). Worth adding?
-2. **Last-scan time when a re-scan keeps nothing new.** `last_scan_at = max(created_at)` doesn't
-   move if every new candidate was a duplicate or invalid. Acceptable, or store a scan
-   timestamp somewhere (e.g. a `jobs` row)?
+1. ~~**Line drift in GitHub links.**~~ Resolved: each row stores the clone's HEAD sha
+   (`evidence_sha`) and links point at that commit.
+2. **Last-scan time when a re-scan keeps nothing new.** Decided to keep
+   `last_scan_at = max(created_at)`. It doesn't move if every new candidate was a
+   duplicate or invalid, but the stats toast shows what that scan did. Revisit if it
+   confuses users.
 3. **Experiment outcome isn't guaranteed.** The "off" run may still catch the rename. As in
    M2: record what we observe; if needed, make the fixture subtler rather than weakening the
    base prompt.

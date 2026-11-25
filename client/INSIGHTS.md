@@ -84,6 +84,10 @@ _None yet._
   a headless page (the window has no focus). Stub `window.confirm = () => true` in the
   evaluated JS for confirm dialogs. Stop Chrome with `pgrep`/`kill <pid>`, not
   `pkill -f <pattern>`, which also matches and kills the calling shell (exit 144).
+- **2026-11-25** — Vendored kit quirks: `useToast()` takes a plain string (no link/action),
+  so "saved → open it" flows need an inline banner with a `next/link`. `IconName` has no
+  `"Pencil"` (TS2322); use the `"Edit"` alias. `Skeleton` takes `height`/`width`, not `h`.
+  Ref: `client/src/app/repos/[repoId]/conventions/_components/ConventionsView/ConventionsView.tsx`
 
 ## Recurring Errors & Fixes
 

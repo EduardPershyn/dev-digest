@@ -13,7 +13,11 @@ a human review step. Entry format:
 
 ## What Works
 
-_None yet._
+- **2026-11-25** — Integration tests that need a stubbed repo-intel answer can pass
+  `overrides.repoIntel: { getConventionSamples: async () => [...] } as unknown as RepoIntel`
+  together with a temp-dir clone (`repos.clone_path`), because the conventions routes call
+  only that method. A review run on the same DB needs a **second** `buildApp` without the
+  stub, since the executor calls other `RepoIntel` methods. Ref: `server/test/conventions.it.test.ts`
 
 ## What Doesn't Work
 

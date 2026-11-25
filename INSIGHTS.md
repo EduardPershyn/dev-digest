@@ -29,6 +29,10 @@ _None yet._
   touches both, and reviewer-core reads the server copy. Why: contracts are vendored per
   package (no workspace), and edits landed in one copy only.
   Ref: `diff -rq client/src/vendor/shared server/src/vendor/shared` (promoted)
+- **2026-11-25** — `@devdigest/shared` `contracts/skills.ts` imports `contracts/knowledge.ts`
+  (for `SkillType`), so a schema in `knowledge.ts` cannot use `SkillName` without a cycle.
+  Put such contracts in a new contracts file (as `contracts/conventions.ts` does) and add it
+  to **both** `index.ts` barrels. Ref: `server/src/vendor/shared/contracts/conventions.ts`
 
 ## Tool & Library Notes
 
@@ -70,7 +74,19 @@ _None yet._
   results are still to be recorded there. Built-in skill sources: `docs/skills/*.md`
   (mirrored by `server/src/db/seed-skills.ts`); import demo archive:
   `docs/skills-samples/test-smells-skill.zip`.
+- **2026-11-25** — M2 Conventions Extractor (spec `specs/M2-conventions.md`, branch
+  `feat/m2-conventions`): `server/src/modules/conventions` (one `completeStructured` call
+  with `maxRetries: 0`, evidence validated against the exact text sent, re-scan keeps
+  decisions), migration `0012_conventions` (+ `evidence_sha` for permalinks), `/repos/:id/
+  conventions` page + create-skill modal, `source: 'extracted'` only with `type:
+  'convention'`. Verified: server 219 unit + 42 integration, client 145, typecheck, lint:arch;
+  live API checks and headless-Chrome screenshots of the empty and populated page. Not run:
+  a real-model extraction and the with/without experiment (owner, per spec), `09-conventions`
+  e2e (no agent-browser).
 
 ## Open Questions
 
-_None yet._
+- **2026-11-25** — Keep rate of the Conventions Extractor with a cheap model is unmeasured: no
+  real-model extraction has been run yet. If many candidates are dropped as
+  `snippet-not-found`, consider numbering lines in the input and asking for a line range
+  (spec Open question 4). Ref: `server/src/modules/conventions/evidence.ts`

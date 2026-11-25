@@ -15,6 +15,11 @@ in the DB). The canonical, reviewable copies live next to this file:
 Built-in **skills** (M2) live in [`../skills/`](../skills/) as importable Markdown with
 frontmatter; `server/src/db/seed-skills.ts` mirrors them for the seed.
 
+The **Conventions Extractor** (M2) is not a reviewer: its instructions live in
+`server/src/prompts/conventions.system.md` and are loaded per extraction. Sampled files
+reach it as `<untrusted>` data, and the skill it drafts becomes an instruction only after
+a user saves it. See `server/README.md` → Conventions (M2).
+
 > The DB is the source of truth at run time. These files are the human-readable
 > originals — when you change a prompt, edit the file here **and** push it to the
 > agent (`PUT /agents/:id`, which versions the change into `agent_versions`).

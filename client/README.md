@@ -26,6 +26,7 @@ flowchart TD
   ROOT["/"] -->|"useRepos → GET /repos"| PULLS["/repos/:repoId/pulls<br/>PR list"]
   ONB["/onboarding<br/>add repo"] -->|"POST /repos"| API[("Fastify API")]
   PULLS --> PR["/pulls/:number<br/>review detail<br/>(overview · diff · findings)"]
+  CONV["/repos/:repoId/conventions<br/>extract · curate · create skill"]
 
   AGENTS["/agents"] --> AGENT["/agents/:id<br/>editor (config · skills)"]
   SKILLS["/skills<br/>grid · side preview · import"] --> SKILL["/skills/:id · /skills/new<br/>editor (config · preview · versions)"]
@@ -35,6 +36,7 @@ flowchart TD
   PR -->|"GET /pulls/:id · /reviews · /pulls/:id/comments<br/>POST /pulls/:id/review · /findings/:id/(accept|dismiss)"| API
   AGENTS -->|"/agents · /agents/:id · /agents/:id/skills"| API
   SKILLS -->|"/skills · /skills/:id · /skills/:id/versions<br/>POST /skills/import/preview"| API
+  CONV -->|"/repos/:id/conventions · POST …/extract · PUT …/conventions/:cid<br/>POST …/skill-draft · POST /skills"| API
   SETTINGS -->|"/settings · /providers"| API
 ```
 
@@ -53,6 +55,14 @@ the type chip is `src/components/skill-type-badge`. Skill bodies render through 
 `Markdown` primitive inside a `.skill-md` wrapper (`app/globals.css`), which restores
 heading/list styles Tailwind's preflight strips. Runtime imports from `@devdigest/shared`
 work because `next.config.mjs` maps `.js` → `.ts` (`extensionAlias`).
+
+**Conventions (M2).** `/repos/:repoId/conventions` (sidebar SKILLS LAB → Conventions, `g c`)
+runs the extractor, lists candidates as `ConventionCard`s (accept / reject toggles, inline
+rule edit, evidence linked to GitHub at the cited lines) and opens
+`CreateConventionSkillModal`, which edits the server-built draft and saves it through
+`useCreateSkill` (`type: convention`, `source: extracted`, disabled by default). Hooks:
+`src/lib/hooks/conventions.ts` (optimistic status / rule). Pure rules:
+`src/lib/conventions.ts`.
 
 **Form controls.** `app/globals.css` sets `color-scheme` per theme (so an open `<select>`
 list is drawn dark in the dark theme) and adds an accent border on focus for the kit's
