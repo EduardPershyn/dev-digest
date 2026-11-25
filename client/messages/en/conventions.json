@@ -15,12 +15,57 @@
       "body": "Scan the repo to surface house-rules — naming, error handling, structure — each backed by evidence you can turn into a Skill.",
       "cta": "Run extraction"
     },
-    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files"
+    "candidateCount": "{count, plural, one {# candidate} other {# candidates}} · grounded against sampled files",
+    "lastScan": "last scan {when}",
+    "accepted": "{accepted} of {total} accepted",
+    "createSkill": "Create skill",
+    "createSkillDisabled": "Accept at least one convention first",
+    "extractDone": "Kept {kept} of {proposed} · {invalid} dropped for invalid evidence · {duplicates} duplicates",
+    "retry": "Retry",
+    "notIndexed": "The repository must be cloned and indexed before extraction. Wait until it shows Indexed.",
+    "openSkill": "Open skill",
+    "dismiss": "Dismiss"
   },
   "card": {
     "confidence": "Confidence",
     "accepted": "Accepted",
     "accepting": "Accepting…",
-    "acceptAsSkill": "Accept as Skill"
+    "acceptAsSkill": "Accept as Skill",
+    "accept": "Accept",
+    "reject": "Reject",
+    "rejected": "Rejected",
+    "edit": "Edit rule",
+    "save": "Save",
+    "cancel": "Cancel",
+    "ruleLabel": "Rule",
+    "openOnGithub": "Open on GitHub",
+    "copy": "Copy snippet",
+    "copied": "Snippet copied"
+  },
+  "modal": {
+    "title": "Create skill from conventions",
+    "subtitle": "Merged from {count, plural, one {# accepted convention} other {# accepted conventions}} in {repo}. Everything below is editable before you save.",
+    "included": "Included conventions",
+    "name": "Name",
+    "nameHint": "Lowercase letters, digits and single hyphens.",
+    "nameErrors": {
+      "required": "Name is required.",
+      "tooLong": "Name is too long (max 64 characters).",
+      "format": "Use lowercase letters, digits and single hyphens (kebab-case)."
+    },
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "enabledHint": "Off by default — review the merged body before it reaches an agent's prompt.",
+    "body": "Skill body",
+    "unsaved": "unsaved",
+    "tokens": "~{count} tokens",
+    "loading": "Building draft…",
+    "draftError": "Could not build the draft.",
+    "cancel": "Cancel",
+    "create": "Create skill",
+    "creating": "Creating…",
+    "saved": "Saved {name} as v1 · added to Skills Lab",
+    "rebuildConfirm": "Rebuild the body? Your edits will be lost."
   }
 }
