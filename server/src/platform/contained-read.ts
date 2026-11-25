@@ -1,4 +1,4 @@
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, resolve, sep } from 'node:path';
 
 /** Upper bound for a single file read off a checkout (sources, configs, docs). */
@@ -33,5 +33,28 @@ export async function readContainedFile(
     return await readFile(real, 'utf8');
   } catch {
     return null;
+  }
+}
+
+/**
+ * Direct children of a repository-relative directory (`''` = the clone root),
+ * or `[]` when it can't be listed safely. Same containment rule as
+ * `readContainedFile`; symlinks are reported as files (`dir: false`), so a
+ * caller never descends through one.
+ */
+export async function listContainedDir(
+  cloneRoot: string,
+  rel: string,
+): Promise<{ name: string; dir: boolean }[]> {
+  if (isAbsolute(rel) || rel.includes('\0')) return [];
+  try {
+    const realRoot = await realpath(cloneRoot);
+    const real = await realpath(resolve(realRoot, rel || '.'));
+    const prefix = realRoot.endsWith(sep) ? realRoot : realRoot + sep;
+    if (real !== realRoot && !real.startsWith(prefix)) return [];
+    const entries = await readdir(real, { withFileTypes: true });
+    return entries.map((e) => ({ name: e.name, dir: e.isDirectory() }));
+  } catch {
+    return [];
   }
 }
