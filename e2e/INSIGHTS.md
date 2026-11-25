@@ -25,7 +25,11 @@ _None yet._
 
 ## Tool & Library Notes
 
-_None yet._
+- **2026-11-25** — `agent-browser wait --text X` polls `document.body.innerText.includes(X)`:
+  case-sensitive, and `innerText` applies CSS, so text under `textTransform: "uppercase"`
+  (section labels, `SectionLabel`, `SeverityBadge`) never matches its i18n string. `08-skills`
+  timed out on `wait --text "Attached to"` (rendered "ATTACHED TO"). Wait for text that is not
+  transformed. Ref: vercel-labs/agent-browser `cli/src/native/actions.rs` (~L9855)
 
 ## Recurring Errors & Fixes
 

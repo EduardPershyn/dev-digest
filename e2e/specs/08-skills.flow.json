@@ -8,7 +8,7 @@
     { "cmd": ["wait", "--text", "branch-coverage-gaps"], "label": "seeded skill card is visible" },
     { "cmd": ["wait", "--text", "semver-discipline"], "label": "second agent's skill card is visible" },
     { "cmd": ["find", "text", "branch-coverage-gaps", "click"], "label": "open the side preview" },
-    { "cmd": ["wait", "--text", "Attached to"], "label": "side preview renders" },
+    { "cmd": ["wait", "--text", "Rendered as the reviewing agent receives it."], "label": "side preview renders" },
     { "cmd": ["wait", "--text", "Test Quality Reviewer"], "label": "preview lists the agent using the skill" },
     { "cmd": ["find", "text", "Test Quality Reviewer", "click"], "label": "jump to the agent's Skills tab" },
     { "cmd": ["wait", "--url", "tab=skills"], "label": "agent editor Skills tab reached" },
