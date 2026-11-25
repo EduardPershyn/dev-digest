@@ -30,7 +30,7 @@ What exists on `main` (do not rebuild):
 | LLM mock | `MockLLMProvider({ structuredBySchema })`, which records every call in `.calls` |
 | i18n | `client/messages/en/conventions.json`: heading, subtitle, empty state, `Run extraction`, `Re-scan`, `Scanning…`, `Extraction failed`, card `Confidence`/`Accepted`/`Accept as Skill`. No strings for Reject, edit or the modal. |
 | Sidebar | `activeKeyFor` maps `/conventions` → `conventions`, but `NAV` (`client/src/vendor/ui/nav.ts`) has **no Conventions item** |
-| Seeded agent | **API Contract Reviewer** with 2 skills (`api-contract-breaking-changes`, `shared-contract-sync`) |
+| Seeded agent | **API Contract Reviewer** with 2 skills (`api-contract-breaking-changes`, `shared-contract-sync`); replaced 2026-11-25 by 3 seeded skills, see Agent + experiment |
 
 ## Scope / Non-goals
 
@@ -48,7 +48,7 @@ What exists on `main` (do not rebuild):
    Markdown body, built from accepted conventions only. Saved through the existing
    `POST /skills` with `type: convention`, `source: extracted`.
 7. Re-scan that keeps accepted and rejected decisions and doesn't duplicate them.
-8. API Contract Reviewer with 4 skills (2 seeded + 1 imported + the extracted one), and the
+8. API Contract Reviewer with 5 skills (3 seeded + 1 imported + the extracted one), and the
    controlled experiment.
 
 **Non-goals**
@@ -340,9 +340,12 @@ stays as the label used in the toast link. Skill source label `Extracted` is add
 
 ### Agent + experiment
 
-- **API Contract Reviewer → 4 skills**: seeded `api-contract-breaking-changes`,
-  `shared-contract-sync`; **imported** `api-deprecation-policy` from a new sample
-  `docs/skills-samples/api-deprecation-policy.md` (frontmatter + body: renamed fields need an
+- **API Contract Reviewer → 5 skills** (changed 2026-11-25; each skill has a directive
+  description and a Good / Bad example): seeded `breaking-change`, `response-schema`,
+  `semver-discipline` (they replace `api-contract-breaking-changes` and
+  `shared-contract-sync`; the producer/consumer and vendored-copy checks moved into
+  `response-schema`); **imported** `deprecation-policy` from the sample
+  `docs/skills-samples/deprecation-policy.md` (frontmatter + body: renamed fields need an
   alias for one release, required params can't be added without a version bump, unit changes
   need a new field name); **extracted** `repo-conventions` from the sandbox repo. Linked in
   the Skills tab (no seed change for the last two; they are demo steps).
@@ -422,12 +425,12 @@ specs index status.
 - [ ] The generated skill appears as its own block in the run trace's Skills section.
 - [ ] Server integration test with the LLM mock.
 - [ ] `pnpm test` and `pnpm typecheck` pass (server, client), plus `pnpm lint:arch` (server).
-- [ ] API Contract Reviewer exists with 4 skills.
+- [ ] API Contract Reviewer exists with 5 skills (4 without the extracted one).
 - [ ] PR description includes the with/without-skills experiment results.
 
 **P3**
 - [ ] More than one skill can be made from accepted conventions (subset + name suffix).
-- [ ] One API Contract Reviewer skill (`api-deprecation-policy`) arrived via import.
+- [ ] One API Contract Reviewer skill (`deprecation-policy`) arrived via import.
 - [ ] Re-scan doesn't duplicate accepted/rejected conventions.
 - [ ] Empty state before the first extraction.
 - [ ] Clear error when extraction fails.

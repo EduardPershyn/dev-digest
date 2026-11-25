@@ -78,7 +78,7 @@ gh pr create --title "Tidy invoice route" --body "Small cleanup of the invoice h
 ```
 
 Run **API Contract Reviewer** twice exactly as in experiment 1 (skills unticked, then
-ticked: `api-contract-breaking-changes`, `shared-contract-sync`).
+ticked: `breaking-change`, `response-schema`, `semver-discipline`, `deprecation-policy`).
 
 **Expected with skills:** CRITICAL breaking-change findings for the renamed path param, the
 now-required `currency` query param, and `amount` → `amount_cents` (renamed field + unit
@@ -101,6 +101,51 @@ Open the **skills-on** run from experiment 1 (PR timeline → the run's **Open r
 - Compare **TOKENS** between the two runs: the difference is roughly the sum of the
   `+N tok` counts.
 
+## Experiment 4 — API Contract Reviewer skills on a real route (PR #2)
+
+The API Contract Reviewer has four skills, each with a directive description and a
+Good / Bad example: seeded `breaking-change`, `response-schema` and `semver-discipline`
+(`docs/skills/`), and `deprecation-policy`, which you **import** yourself from
+`docs/skills-samples/deprecation-policy.md` (the import demo for this agent).
+
+The PR is ready on the owner's fork:
+[EduardPershyn/dev-digest#2](https://github.com/EduardPershyn/dev-digest/pull/2), branch
+`exp/skill-history-route` → base `exp/skill-history-base`. The base branch is local `main`
+(`5b11854`), because GitHub `main` on the fork is behind and would drag the whole M2 skills
+diff into the PR. Throwaway: do not merge; delete both branches when done. The PR is
+titled "Tidy skill history route" and changes three server files:
+
+| Change | Line | Which skill should catch it |
+|---|---|---|
+| `GET /skills/:id/versions` → `GET /skills/:id/history` (old path gone) | `skills/routes.ts` | `breaking-change`, `deprecation-policy` |
+| new **required** `?limit` query param (no default) | `skills/routes.ts` `HistoryQuery` | `breaking-change` |
+| response field `agent_count` → `used_by_agents`, no alias | `skills/helpers.ts` | `response-schema`, `deprecation-policy` |
+| server contract copy renamed, **client copy not** (`client/src/vendor/shared/contracts/knowledge.ts` still has `agent_count`; `client/src/lib/hooks/skills.ts` still calls `/versions`) | `server/src/vendor/shared/contracts/knowledge.ts` | `response-schema` |
+| breaking change shipped without a version bump or `/v2` | — | `semver-discipline` |
+
+Steps:
+1. Reseed if this DB predates the new skills: `cd server && pnpm db:seed`. It adds the three
+   seeded skills to the library. It does **not** relink an agent that already has links, so
+   on an existing DB open **Agents → API Contract Reviewer → Skills**, detach the old
+   `api-contract-breaking-changes` / `shared-contract-sync`, and attach
+   `breaking-change`, `response-schema`, `semver-discipline`.
+2. **Import:** **Skills → Add Skill → Import from file…** →
+   `docs/skills-samples/deprecation-policy.md` → the preview shows name `deprecation-policy`,
+   type `convention`, nothing dropped, no warnings → tick the confirmation, tick **Enable
+   now** → **Save skill**. Then **Attach skill → deprecation-policy** on the agent
+   (`4 of 4 enabled`).
+3. Import `EduardPershyn/dev-digest` in the studio if it is not there yet, **Pull Requests →
+   Refresh**, open PR #2.
+4. **Skills off** (`0 of 4 enabled`) → **Run Review ▾ → API Contract Reviewer**. Then
+   **skills on** (`4 of 4 enabled`) → run again. Compare the two runs in the Timeline.
+
+**Expected with skills:** separate findings for the removed `/versions` path, the required
+`limit`, the `agent_count` rename with the stale client contract, and the missing version
+bump / deprecation step, each naming the missing alias or marker.
+**Expected without skills:** the path and field renames are likely reported as one generic
+breaking change, or read as a tidy-up. The stale client copy, the required `limit` and the
+missing deprecation / version step are likely missed.
+
 ## Results (fill in from real runs)
 
 Record what you observed, including runs where the outcome differs from the expectation.
@@ -112,4 +157,6 @@ hide the clamp behind a helper); do not weaken the base prompt.
 | 1 test quality | Test Quality Reviewer v? | off | | | |
 | 1 test quality | Test Quality Reviewer v? | on (3) | | | |
 | 2 API contract | API Contract Reviewer v? | off | | | |
-| 2 API contract | API Contract Reviewer v? | on (2) | | | |
+| 2 API contract | API Contract Reviewer v? | on (4) | | | |
+| 4 skill history route | API Contract Reviewer v? | off | | | |
+| 4 skill history route | API Contract Reviewer v? | on (4) | | | |

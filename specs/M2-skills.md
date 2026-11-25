@@ -323,7 +323,7 @@ checklists to skills, so the experiments measure the skills' effect.
 | Agent | Skills (order) | Origin |
 |---|---|---|
 | **Test Quality Reviewer** — reviews the tests in a PR: uncovered branches, missing corner cases, excessive mocking, flaky tests | 1. `branch-coverage-gaps` (rubric) · 2. `boundary-and-corner-cases` (rubric) · 3. `mocking-and-flakiness` (convention) | 1–2 seeded `manual`; **3 is imported** during the demo from `docs/skills-samples/test-smells-skill.zip` |
-| **API Contract Reviewer** — flags breaking changes to HTTP routes and shared contracts | 1. `api-contract-breaking-changes` (rubric) · 2. `shared-contract-sync` (convention: both `@devdigest/shared` copies, Zod schema compat) | seeded `manual` |
+| **API Contract Reviewer** — flags breaking changes to HTTP routes and shared contracts | 1. `breaking-change` · 2. `response-schema` · 3. `semver-discipline` (rubrics) · 4. `deprecation-policy` (convention) | 1–3 seeded `manual`; **4 is imported** from `docs/skills-samples/deprecation-policy.md`. *Changed 2026-11-25; was `api-contract-breaking-changes` + `shared-contract-sync`* |
 
 `docs/skills-samples/test-smells-skill.zip` (plus its unpacked source for review) holds
 `test-smells/SKILL.md` with frontmatter (`name`, `description`, `allowed-tools: Bash`),

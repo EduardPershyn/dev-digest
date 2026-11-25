@@ -30,7 +30,7 @@ It renames `:id` to `:invoiceId`, makes `?currency` required and replaces `amoun
 
 1. The stack is running with migrations applied (`cd server && pnpm db:migrate`, which now
    includes `0012_conventions`) and seeded. The seed creates **API Contract Reviewer** with
-   `api-contract-breaking-changes` and `shared-contract-sync`.
+   `breaking-change`, `response-schema` and `semver-discipline`.
 2. An OpenRouter key is set in **Settings → API Keys**.
 3. **Settings → Feature models → Conventions**: pick a cheap model, e.g. the OpenRouter
    DeepSeek flash model the seeded agents use. The registry default (`gpt-5.4`) works but
@@ -38,9 +38,9 @@ It renames `:id` to `:invoiceId`, makes `?currency` required and replaces `amoun
 
 ## 1. Import the third skill (import demo)
 
-**Skills → Add Skill → Import from file…** → `docs/skills-samples/api-deprecation-policy.md`
+**Skills → Add Skill → Import from file…** → `docs/skills-samples/deprecation-policy.md`
 → check the preview → tick the confirmation → **Save skill**. Then **Agents → API Contract
-Reviewer → Skills → Attach skill → api-deprecation-policy**.
+Reviewer → Skills → Attach skill → deprecation-policy**.
 
 ## 2. Push the base code to the sandbox repo
 
@@ -67,7 +67,7 @@ In the studio, add the repo (or **Refresh** it if it is already imported) and wa
 5. **Create skill** → check the merged body → keep the name `repo-conventions` → turn
    **Enabled** on → **Create skill**.
 6. **Agents → API Contract Reviewer → Skills → Attach skill → repo-conventions**. The agent
-   now has 4 skills (2 seeded, 1 imported, 1 extracted).
+   now has 5 skills (3 seeded, 1 imported, 1 extracted).
 
 > Say this on camera: *"The model proposed these rules, but every card quotes code that the
 > server found in the file it was sent. I decide which rules become instructions, and the
@@ -85,12 +85,12 @@ gh pr create --title "Tidy invoice route" --body "Small cleanup of the invoice h
 
 In the studio: **Pull Requests → Refresh** → open the PR.
 
-1. **Skills off:** untick all 4 skills on the agent's Skills tab (`0 of 4 enabled`) → **Run
+1. **Skills off:** untick all 5 skills on the agent's Skills tab (`0 of 5 enabled`) → **Run
    Review ▾ → API Contract Reviewer**.
-2. **Skills on:** tick all 4 (`4 of 4 enabled`) → run again.
+2. **Skills on:** tick all 5 (`5 of 5 enabled`) → run again.
 3. Open the skills-on run → **Open run trace & logs** → **Prompt assembly**. Expect a
    `Skill · repo-conventions · v1` block whose text carries `source="extracted"`, next to
-   the other three blocks.
+   the other four blocks.
 
 **Expected with skills:** findings that cite the repo's own conventions. The path param no
 longer matches `:id` as in `orders.ts` / `customers.ts`, `currency` is no longer optional
@@ -108,4 +108,4 @@ the base prompt.
 |---|---|---|---|---|---|
 | Extraction | Conventions model: ? | — | kept ? of ? (invalid ?, dup ?) | | |
 | API contract | API Contract Reviewer v? | off | | | |
-| API contract | API Contract Reviewer v? | on (4) | | | |
+| API contract | API Contract Reviewer v? | on (5) | | | |

@@ -78,10 +78,13 @@ d('M2 skills (Testcontainers pg)', () => {
       name: string;
       skill_count: number;
     }>;
-    for (const name of ['Test Quality Reviewer', 'API Contract Reviewer']) {
+    for (const [name, count] of [
+      ['Test Quality Reviewer', 2],
+      ['API Contract Reviewer', 3],
+    ] as const) {
       const a = agents.find((x) => x.name === name);
       expect(a, name).toBeDefined();
-      expect(a!.skill_count).toBe(2);
+      expect(a!.skill_count).toBe(count);
     }
     await app.close();
   });
