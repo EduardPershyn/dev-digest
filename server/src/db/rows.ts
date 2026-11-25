@@ -2,6 +2,7 @@ import * as t from './schema.js';
 import type {
   AgentRecord,
   AgentVersionRecord,
+  ConventionRecord,
   FindingRecord,
   PrFileRecord,
   PullRecord,
@@ -30,6 +31,7 @@ export type ReviewRow = typeof t.reviews.$inferSelect;
 export type PrFileRow = typeof t.prFiles.$inferSelect;
 export type SkillRow = typeof t.skills.$inferSelect;
 export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
+export type ConventionRow = typeof t.conventions.$inferSelect;
 
 // ---- row ⇔ record drift guard (compile-time only) ---------------------------
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -45,4 +47,5 @@ export type _RowRecordDriftGuard = [
   Assert<Same<FindingRow, FindingRecord>>,
   Assert<Same<SkillRow, SkillRecord>>,
   Assert<Same<SkillVersionRow, SkillVersionRecord>>,
+  Assert<Same<ConventionRow, ConventionRecord>>,
 ];

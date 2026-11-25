@@ -152,6 +152,11 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+// M2 — Conventions Extractor (specs/M2-conventions.md). `status` is the source of
+// truth; `accepted` mirrors `status === 'accepted'` for older readers.
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
 export const ConventionCandidate = z.object({
   id: z.string(),
   rule: z.string(),
@@ -159,6 +164,15 @@ export const ConventionCandidate = z.object({
   evidence_snippet: z.string(),
   confidence: z.number().min(0).max(1),
   accepted: z.boolean(),
+  status: ConventionStatus,
+  category: z.string().nullable(),
+  /** 1-based, inclusive; the snippet is exactly these lines of the file. */
+  evidence_start_line: z.number().int().nullable(),
+  evidence_end_line: z.number().int().nullable(),
+  /** GitHub blob link at those lines; null when there is no line range. */
+  evidence_url: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
 

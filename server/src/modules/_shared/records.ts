@@ -76,6 +76,26 @@ export interface SkillVersionRecord {
   createdAt: Date;
 }
 
+/** M2 — a convention candidate proposed by the extractor (specs/M2-conventions.md). */
+export interface ConventionRecord {
+  id: string;
+  workspaceId: string;
+  repoId: string | null;
+  rule: string;
+  evidencePath: string | null;
+  evidenceSnippet: string | null;
+  confidence: number | null;
+  /** Legacy mirror of `status === 'accepted'`. */
+  accepted: boolean;
+  status: 'pending' | 'accepted' | 'rejected';
+  category: string | null;
+  evidenceStartLine: number | null;
+  evidenceEndLine: number | null;
+  evidenceSha: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface PullRecord {
   id: string;
   workspaceId: string;

@@ -25,8 +25,11 @@ export const SkillName = z
   .regex(SKILL_NAME_PATTERN, 'Use lowercase letters, digits and single hyphens (kebab-case)');
 export type SkillName = z.infer<typeof SkillName>;
 
-/** Sources a client may set when creating a skill. */
-export const SkillInputSource = z.enum(['manual', 'imported_file']);
+/**
+ * Sources a client may set when creating a skill. `extracted` = saved from the
+ * Conventions Extractor (M2) and only valid with `type: 'convention'`.
+ */
+export const SkillInputSource = z.enum(['manual', 'imported_file', 'extracted']);
 export type SkillInputSource = z.infer<typeof SkillInputSource>;
 
 /** POST /skills body. */
@@ -39,7 +42,16 @@ export const SkillInput = z
     enabled: z.boolean().optional(),
     source: SkillInputSource.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((s, ctx) => {
+    if (s.source === 'extracted' && s.type !== 'convention') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['type'],
+        message: "An extracted skill must have type 'convention'",
+      });
+    }
+  });
 export type SkillInput = z.infer<typeof SkillInput>;
 
 /** PUT /skills/:id body — any subset; `source` is fixed at creation. */

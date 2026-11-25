@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, jsonb, timestamp, doublePrecision, boolean, vector, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  jsonb,
+  timestamp,
+  doublePrecision,
+  boolean,
+  integer,
+  vector,
+  index,
+} from 'drizzle-orm/pg-core';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -28,15 +39,31 @@ export const memory = pgTable(
   (t) => ({ wsIdx: index('memory_ws_idx').on(t.workspaceId) }),
 );
 
-export const conventions = pgTable('conventions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id, { onDelete: 'cascade' }),
-  repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
-  rule: text('rule').notNull(),
-  evidencePath: text('evidence_path'),
-  evidenceSnippet: text('evidence_snippet'),
-  confidence: doublePrecision('confidence'),
-  accepted: boolean('accepted').notNull().default(false),
-});
+export const conventions = pgTable(
+  'conventions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id').references(() => repos.id, { onDelete: 'cascade' }),
+    rule: text('rule').notNull(),
+    evidencePath: text('evidence_path'),
+    evidenceSnippet: text('evidence_snippet'),
+    confidence: doublePrecision('confidence'),
+    /** Legacy mirror of `status === 'accepted'` (plugin export reads it). Written together. */
+    accepted: boolean('accepted').notNull().default(false),
+    // M2 — Conventions Extractor (specs/M2-conventions.md). `status` is the source of truth.
+    status: text('status', { enum: ['pending', 'accepted', 'rejected'] })
+      .notNull()
+      .default('pending'),
+    category: text('category'),
+    evidenceStartLine: integer('evidence_start_line'),
+    evidenceEndLine: integer('evidence_end_line'),
+    /** Commit of the clone the evidence was read from → stable GitHub permalink. */
+    evidenceSha: text('evidence_sha'),
+    createdAt: now(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ repoIdx: index('conventions_repo_idx').on(t.repoId) }),
+);
