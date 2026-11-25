@@ -136,7 +136,7 @@ export const Skill = z.object({
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
   /** M2 — number of agents this skill is linked to (any link state). */
-  agent_count: z.number().int().default(0),
+  used_by_agents: z.number().int().default(0),
   created_at: z.string().nullish(),
   updated_at: z.string().nullish(),
 });
