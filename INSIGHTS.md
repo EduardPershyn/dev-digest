@@ -14,6 +14,15 @@ a human review step. Entry format:
 ## What Works
 
 _None yet._
+- **2026-11-25** — Experiment PRs for the studio go on the fork `EduardPershyn/dev-digest`
+  against a pushed **base branch**, not `main`: GitHub `main` there (`6f85d74`) is behind
+  local `main`, so a PR against it drags in every unpushed M2 commit. Push the base commit
+  as e.g. `exp/<name>-base` and set the PR base to it. Pass `--repo EduardPershyn/dev-digest`
+  to `gh pr create`, because the clone also has an `upstream` remote. Ref: PR #2
+- **2026-11-25** — To check that `server/src/db/seed-skills.ts` still mirrors `docs/skills/*.md`,
+  run each file through `extractSkill` from `server/src/modules/skills/import-parser.ts` and
+  compare name / description / type / body (body = `.trim()`). That is the same parser the
+  Import button uses, so a match means importing the doc gives the seeded skill.
 
 ## What Doesn't Work
 
@@ -42,6 +51,9 @@ _None yet._
   Why: no workspace, so deps resolve per package dir. Ref: `.claude/skills/pr-self-review/scripts/lib/checks.mjs` (`needs`)
 - **2026-11-24** — Node 22's `node --test <directory>` fails with MODULE_NOT_FOUND. Pass the
   file (`node --test .claude/skills/pr-self-review/scripts/gate.test.mjs`) or a glob instead.
+- **2026-11-25** — From Claude Code's sandboxed shell, `git push`/`fetch` over the ssh remote
+  fails ("Permission denied (publickey)"). Pushing over HTTPS with gh's token works:
+  `git -c credential.helper= -c credential.helper='!gh auth git-credential' push https://github.com/EduardPershyn/dev-digest.git <branch>`.
 
 ## Recurring Errors & Fixes
 
@@ -83,6 +95,16 @@ _None yet._
   live API checks and headless-Chrome screenshots of the empty and populated page. Not run:
   a real-model extraction and the with/without experiment (owner, per spec), `09-conventions`
   e2e (no agent-browser).
+- **2026-11-25** — API Contract Reviewer skills reworked (branch `feat/m2-conventions`):
+  seeded `breaking-change`, `response-schema`, `semver-discipline` (`docs/skills/`) replace
+  `api-contract-breaking-changes` + `shared-contract-sync`. `deprecation-policy`
+  (`docs/skills-samples/`, renamed from `api-deprecation-policy`) is the import demo. Every
+  skill has a Good / Bad example in a domain other than the experiment PR, so the skill
+  never quotes the diff it is tested on. An existing DB keeps the old links (the seed links
+  only agents that have none), so relink by hand in the Skills tab. Experiment 4 (PR #2,
+  `exp/skill-history-route`) is in `specs/M2-skills/experiments/README.md`. Verified: seed ≡
+  docs via the import parser, server typecheck, 219 unit tests, `skills.it.test.ts`. Not
+  run: the LLM experiment, e2e.
 
 ## Open Questions
 
