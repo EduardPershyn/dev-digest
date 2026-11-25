@@ -149,8 +149,11 @@ export function buildConventionSkillDraft(input: {
   }
 
   const description =
-    `Use when a PR changes code in ${input.repoFullName}. Flag changes that break one of ` +
-    `its ${rows.length} house convention${rows.length === 1 ? '' : 's'} and cite the file:line.`;
+    `Use when a PR changes code in ${input.repoFullName}. Flag changes that break ` +
+    (rows.length === 1
+      ? 'its house convention'
+      : `one of its ${rows.length} house conventions`) +
+    ' and cite the file:line.';
 
   return {
     name,

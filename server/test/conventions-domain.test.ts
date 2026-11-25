@@ -258,10 +258,12 @@ describe('skill draft', () => {
     );
   });
 
-  it('suffixes the name when it is taken', () => {
+  it('suffixes the name when it is taken; singular description for one rule', () => {
     const taken = new Set(['repo-conventions', 'repo-conventions-2']);
-    expect(buildConventionSkillDraft({ repoFullName: 'a/b', accepted: [row('a')], takenNames: taken }).name).toBe(
-      'repo-conventions-3',
+    const draft = buildConventionSkillDraft({ repoFullName: 'a/b', accepted: [row('a')], takenNames: taken });
+    expect(draft.name).toBe('repo-conventions-3');
+    expect(draft.description).toBe(
+      'Use when a PR changes code in a/b. Flag changes that break its house convention and cite the file:line.',
     );
   });
 
