@@ -19,6 +19,7 @@ remains as the historical record.
 | [pr-self-review](pr-self-review.md) | done | .claude (tooling) |
 | [M2-skills](M2-skills.md) | in-progress | server, client, reviewer-core, e2e |
 | [M2-conventions](M2-conventions.md) | in-progress | server, client, docs |
+| [M3-intent-layer](M3-intent-layer.md) | draft | server, reviewer-core, client, e2e |
 
 ## Template
 ```markdown
