@@ -13,7 +13,7 @@ tool="$(printf '%s' "$input" | jq -r '.tool_name // empty')"
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 # Paths (repo-relative) that must never be edited.
-protected_re='^(client/src/vendor/ui/|server/\.dependency-cruiser-known-violations\.json$|\.claude/(agents|skills|hooks)/|\.claude/settings[^/]*$|(.*/)?\.env(\.local)?$)'
+protected_re='^(client/src/vendor/ui/|server/\.dependency-cruiser-known-violations\.json$|\.claude/(agents|skills|hooks|scripts)/|\.claude/settings[^/]*$|(.*/)?\.env(\.local)?$)'
 migrations_re='^server/src/db/migrations/'
 
 case "$tool" in
@@ -39,7 +39,7 @@ case "$tool" in
     has '--no-verify'                                           && block "--no-verify skips the repo's checks"
     # Shell writes into protected or append-only paths (/dev/null and fd redirects are harmless).
     writes="$(printf '%s' "$cmd" | sed -E 's/[0-9]*>&[0-9]+//g; s#[0-9]*>+ */dev/null##g')"
-    if has '(client/src/vendor/ui/|server/src/db/migrations/|dependency-cruiser-known-violations|\.claude/(agents|skills|hooks|settings))' \
+    if has '(client/src/vendor/ui/|server/src/db/migrations/|dependency-cruiser-known-violations|\.claude/(agents|skills|hooks|scripts|settings))' \
        && printf '%s' "$writes" | grep -Eq -- '(sed[[:space:]]+-i|>|tee[[:space:]]|(^|[[:space:];&|])(rm|mv|cp|truncate)[[:space:]])'; then
       block "shell write to a protected or append-only path"
     fi

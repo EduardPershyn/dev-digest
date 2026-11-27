@@ -71,6 +71,9 @@ cd server && pnpm test                                          # both
 # pr-self-review skill helper (Node built-ins only, no install; local only, no CI workflow)
 node --test .claude/skills/pr-self-review/scripts/gate.test.mjs
 
+# subagent guard hooks, agent frontmatter lint, mutation probe (same: built-ins, local only)
+node --test .claude/hooks/hooks.test.mjs .claude/scripts/agents.test.mjs .claude/scripts/mutation-probe.test.mjs
+
 # browser e2e (needs the full stack + agent-browser CLI)
 ./scripts/dev.sh
 npm i -g agent-browser && agent-browser install

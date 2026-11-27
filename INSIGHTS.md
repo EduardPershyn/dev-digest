@@ -63,7 +63,12 @@ _None yet._
 
 ## Recurring Errors & Fixes
 
-_None yet._
+- **2026-11-27** — An agent `description:` containing an unquoted `: ` (e.g. "boundaries.
+  Backend: onion rings") makes the whole `.claude/agents/*.md` frontmatter invalid YAML
+  (PyYAML: "mapping values are not allowed here"), so the agent may not load. A hand-written
+  key/value check doesn't notice. Fix: rephrase with "—" or quote the value. Check with
+  `node --test .claude/scripts/agents.test.mjs`, which lints for it now. Why: a plain YAML
+  scalar can't contain `: ` or ` #`. Ref: `.claude/scripts/agents.test.mjs` (`invalid YAML`)
 
 ## Session Notes
 
@@ -119,6 +124,19 @@ _None yet._
   git/docker-volume commands. Approved plans are saved to `specs/<spec>/plans/<slug>.md`.
   Verified: 40 hook cases with sample tool-call JSON, and the frontmatter parses as YAML. Not
   run: a real planner → implementer pass (the agents load after a session restart).
+- **2026-11-27** — Added the `test-writer`, `plan-verifier`, `architecture-reviewer` and
+  `doc-writer` subagents (plan: `specs/plans/2026-11-27-reviewer-and-support-agents.md`).
+  - Bash limits: `readonly-bash.sh` gained `--profile arch|checks|tests`. These allow exact
+    check commands with allowlisted vitest args. The default is unchanged.
+  - Write limits: a new `write-scope-guard.sh` allows test-only / doc-Markdown-only writes,
+    with append-only `INSIGHTS.md`.
+  - Red proof: `.claude/scripts/mutation-probe.mjs` runs one mutant and restores the file,
+    sha256-checked.
+  - First committed tests for the hooks and agents: 193 `node --test` cases.
+  - Verified: a real probe on `server/src/modules/reviews/helpers.ts` (`reviews-helpers`)
+    was killed for one mutation and survived another, and the file sha256 was unchanged
+    afterwards. `gate.test.mjs` still passes.
+  - Not run: live invocations of the four agents (they load after a session restart).
 
 ## Open Questions
 
