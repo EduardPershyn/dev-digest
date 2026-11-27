@@ -60,6 +60,12 @@ _None yet._
   `outline: none` on the control). Without `color-scheme`, Chrome draws an open `<select>`
   list in its light theme while options inherit `--text-primary` → white on white. Ref:
   `client/src/app/globals.css`
+- **2026-11-27** — Anything `position: sticky` inside the PR detail tabs needs
+  `top: 144` (not 0): `PrDetailHeader` is itself sticky at `top: 0`, `zIndex: 5`, and is
+  144 px tall at 1400 px width, so a `top: 0` element pins underneath it and is invisible.
+  Verified in headless Chrome (group header `top` 52 → 196 = PR header bottom). Ref:
+  `client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/constants.ts`
+  (`GROUP_HEADER_STICKY_TOP`), `…/PrDetailHeader/styles.ts`
 
 ## Tool & Library Notes
 
@@ -98,6 +104,24 @@ _None yet._
   `IntlError: ENVIRONMENT_FALLBACK: The \`now\` parameter wasn't provided` on every render. Pass a
   fixed `now={new Date(...)}` to `NextIntlClientProvider`; then the text is deterministic and
   numeric ("1 day ago", not "yesterday"). Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/IntentCard/IntentCard.test.tsx`
+- **2026-11-27** — Two `next dev` servers started in the same `client/` dir (e.g. the dev
+  stack on :3000 plus a second one with another `NEXT_PUBLIC_API_BASE`) share `client/.next`:
+  whichever recompiles last bakes ITS `NEXT_PUBLIC_API_BASE` into the shared chunks, so the
+  other server's pages call the wrong API (seen: "Couldn't load this pull request", no
+  request reached the intended API, `layout.js` contained `localhost:3001`). For a second
+  web instance, copy the client to a scratch dir (`tar --exclude=./node_modules
+  --exclude=./.next`, then symlink `node_modules`) and run `next dev` there.
+  `scripts/e2e.sh` also starts a second `next dev` in `client/`, so the same clash can hit it
+  while the dev stack runs. Ref: `client/next.config.mjs`, `scripts/e2e.sh`
+- **2026-11-27** — The shared diff-viewer's findings can be tested without
+  the DiffTab: render `FileCard` directly with a stub `DiffFindingApi.Card` (it is a slot
+  prop, not an import) and only the `shell` messages namespace. Ref:
+  `client/src/components/diff-viewer/FileCard/FileCard.test.tsx`
+- **2026-11-27** — The vendored `Button`'s `active` prop only has an effect with
+  `kind="tertiary"` (filled `--bg-hover` + primary text); `ghost`/`secondary`/… ignore it, so a
+  segmented switch built from ghost buttons shows no selected state (only `aria-pressed`
+  changes). Use `kind="tertiary"` for toggle groups and assert `style.background` in tests.
+  Ref: `client/src/vendor/ui/primitives/Button.tsx:52`, `DiffTab/_components/SmartDiffHeader`
 
 ## Recurring Errors & Fixes
 
@@ -171,6 +195,22 @@ _None yet._
   block + "N hidden as out of scope · M collapsed" line, registry mirror set to "Intent classifier" /
   openrouter deepseek-v4-flash with a parity test against the shared `FEATURE_MODELS`
   (`src/lib/feature-models.test.ts`). 157/157 tests, typecheck clean. Not checked in a browser.
+- **2026-11-27** — M3 Smart Diff UI (plan `specs/M3-smart-diff/plans/smart-diff.md`):
+  Files changed tab defaults to Smart order (role groups from `useSmartDiff`, sticky headers,
+  `● N` flagged-file counters, docs/boilerplate collapsed) with an Original order switch.
+  `components/diff-viewer` gained optional `findings: DiffFindingApi` (card passed in as a
+  `Card` slot, wording from the caller): severity strip (`boxShadow` inset) + label on the
+  line, cards under `RIGHT:start_line`, an out-of-patch block, a dot per flagged file.
+  Findings share the comments toggle, which still starts hidden. `reviewKeys.smartDiff` is
+  invalidated with every `reviewKeys.reviews` invalidation and on run done. Verified: 161/161
+  tests, typecheck, headless Chrome on an isolated stack (strip/label, sticky, live dismiss
+  → `● 2` → `● 1` and the dot gone without reload). Not run: `10-smart-diff` e2e
+  (no agent-browser).
+- **2026-11-27** — Supersedes "which still starts hidden" in the M3 Smart Diff entry above:
+  per an owner decision recorded in `specs/M3-smart-diff.md`, the shared comments/findings
+  switch in `DiffTab.tsx` now starts ON (`useState(true)`), so an expanded file shows its
+  finding cards without a click. `DiffTab.test.tsx` asserts visible → Hide → Show.
+  Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/DiffTab/DiffTab.tsx`
 
 ## Open Questions
 

@@ -137,6 +137,12 @@ _None yet._
     was killed for one mutation and survived another, and the file sha256 was unchanged
     afterwards. `gate.test.mjs` still passes.
   - Not run: live invocations of the four agents (they load after a session restart).
+- **2026-11-27** — M3 Smart Diff implemented across server / both contract copies / client /
+  e2e (plan `specs/M3-smart-diff/plans/smart-diff.md`). The "latest `kind:'review'` review
+  per agent" rule exists three times on purpose: `server/src/modules/smart-diff/helpers.ts`,
+  its client mirror `…/DiffTab/helpers.ts`, and the older `pulls/findings-summary.ts`,
+  which does not filter `kind`. Each has a table test with the same scenarios. Change them
+  together. Details are in the server and client session notes.
 
 ## Open Questions
 

@@ -90,3 +90,32 @@ export function lineSignFor(kind: Line["kind"]): CSSProperties {
     flexShrink: 0,
   };
 }
+
+/* ---- M3 review findings in the diff (see findings.ts) ---- */
+export const fs = {
+  /** Small dot after the file path when the file has counted findings. */
+  dot: {
+    display: "inline-block",
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    background: "var(--crit)",
+    flexShrink: 0,
+  } satisfies CSSProperties,
+  /** Right-aligned severity label on a finding line. */
+  label: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    fontSize: 11,
+    fontWeight: 600,
+    paddingRight: 12,
+    flexShrink: 0,
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+} as const;
+
+/** Coloured left strip on a finding line — boxShadow, never border shorthand. */
+export function findingStripFor(color: string): CSSProperties {
+  return { boxShadow: `inset 3px 0 0 ${color}` };
+}

@@ -64,6 +64,11 @@ _None yet._
   The container has no logger, so the classification log line uses the per-call `log`
   (`req.log` / the run's logger). Ref: `server/src/platform/container.ts` (`intentService`),
   `server/src/modules/intent/service.ts`
+- **2026-11-27** — `pr_files` has no order column and `getPrFiles` has no `ORDER BY`, so
+  "GitHub order" is only Postgres physical order: an `UPDATE` of one row (seen: setting
+  `patch` on `src/config.ts` of seeded PR #482) moves it to the end of the list returned by
+  `GET /pulls/:id/smart-diff` and the PR detail. Don't rely on file order after rewriting
+  rows. Ref: `server/src/modules/reviews/repository/pull.repo.ts` (`getPrFiles`)
 
 ## Tool & Library Notes
 
@@ -128,6 +133,12 @@ _None yet._
   every `*.it.test.ts` file alone (incl. new `intent.it`, `reviews-intent.it`), typecheck,
   lint:arch; reviewer-core 54; client typecheck. Not done here: client UI, e2e (WI-11..13),
   a live DeepSeek call with `require_parameters`.
+- **2026-11-27** — M3 Smart Diff backend: module `src/modules/smart-diff` (pure
+  `classifyFile` / `latestReviewFindings` / `buildSmartDiff` in helpers + patterns in
+  constants, `SmartDiffSource` port satisfied by `c.reviewRepo`, no LLM port), route
+  `GET /pulls/:id/smart-diff`, `SmartDiffRole` extended to 5 roles in both `brief.ts`
+  copies. Verified: 275 unit tests, `smart-diff.it` (incl. `MockLLMProvider.calls` = 0),
+  typecheck, lint:arch with the baseline unchanged. Ref: `server/README.md` (Smart Diff)
 
 ## Open Questions
 
@@ -155,3 +166,9 @@ _None yet._
   `docs/../../secret.md` (verified with a throwaway test). WHATWG `URL` already collapses
   `%2e%2e` segments, so the encoded slash is the only way in. Unfixed; the read stays in the same
   repo. Ref: `server/src/modules/intent/references.ts:102` (`safeDecode`), `:213`
+- **2026-11-27** — `reviews.it.test.ts` "runs a review: map-reduce + grounding…" failed in 2
+  of 4 full `pnpm exec vitest run .it.test` runs with `TypeError: Cannot read properties of
+  undefined (reading 'model')` at `test/reviews.it.test.ts:203` (`trace.config.model`), and
+  passed when run alone. Likely the `completeAgentRun` → `saveRunTrace` race noted above
+  (2026-11-24), surfacing under parallel load. Not fixed (seen while verifying M3, which
+  doesn't touch reviews). Ref: `server/test/reviews.it.test.ts:201-203`

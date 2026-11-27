@@ -1,0 +1,18 @@
+{
+  "name": "PR Files changed tab groups files by role (Smart Diff, M3)",
+  "description": "From PR #482, open the Files changed tab: the Smart order shows the Core group (all 4 seeded files are src/** → core) with its file count, and the Original order switch brings back the flat GitHub list. Read-only seeded data, no model call (GET /pulls/:id/smart-diff never calls an LLM). Waits avoid the uppercase 'Reviewer-ordered diff' title because agent-browser matches innerText (see e2e/INSIGHTS.md). Assumes a freshly-seeded DB (see e2e/README.md).",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Files changed"], "label": "switch to the Files changed tab" },
+    { "cmd": ["wait", "--url", "tab=diff"], "label": "diff tab is active in the URL" },
+    { "cmd": ["wait", "--text", "Smart order"], "label": "the Smart / Original order switch renders" },
+    { "cmd": ["wait", "--text", "Core"], "label": "the Core role group renders" },
+    { "cmd": ["wait", "--text", "4 files"], "label": "the group shows its file count" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Original order"], "label": "switch to the original GitHub order" },
+    { "cmd": ["wait", "--text", "src/config.ts"], "label": "the flat list shows a seeded file" }
+  ]
+}
