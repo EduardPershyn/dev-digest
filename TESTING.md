@@ -92,6 +92,15 @@ cd e2e && npm install && npm test
   `test:integration` scripts.
 - **Hermetic by default.** Reach for `src/adapters/mocks.ts` (MockLLMProvider,
   MockGitClient) rather than real network/keys.
+- **Server tests build the app with `buildTestApp`** from `server/test/helpers/app.ts`,
+  never the production `buildApp`. `loadConfig` loads `server/.env` and the production
+  secrets provider also reads `~/.devdigest/secrets.json`, so a real key could be picked up
+  — and since M3 every review first calls the `review_intent` model (default OpenRouter).
+  `buildTestApp` defaults `overrides.secrets` to an empty `MockSecretsProvider`, so any
+  provider or GitHub client a test did not inject fails with `ConfigError`. A test that
+  needs a key passes its own `secrets`; one that needs a model passes `overrides.llm`.
+  `server/test/hermetic-app.test.ts` proves this and fails if any `server/test/*.test.ts`
+  imports `../src/app.js` directly.
 - **E2E specs are deterministic batch JSON** (`e2e/specs/*.flow.json`) using
   only `--url` / `--text` / `find` locators — never the AI `chat` command.
 - **CI is path-filtered per package.** Cross-package source aliases are encoded

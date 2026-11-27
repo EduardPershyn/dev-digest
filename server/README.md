@@ -70,6 +70,7 @@ flowchart TB
   end
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
+    intent["intent (M3)<br/>/pulls/:id/intent · /intent/classify"]
   end
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
@@ -109,7 +110,8 @@ through `SecretsProvider` (`~/.devdigest/secrets.json`, mode `0600`, with
 Migrations are **not** applied on boot — run `pnpm db:migrate` (pgvector is
 enabled by migration `0000`). `pnpm db:seed` is idempotent demo data
 (`acme/payments-api`, PR #482, the built-in agents incl. the M2 Test Quality /
-API Contract reviewers, and their built-in skills).
+API Contract reviewers, their built-in skills, and a classified M3 intent for
+PR #482 with one unreadable Linear link).
 
 ## Review context (non-obvious)
 
@@ -134,6 +136,14 @@ What the reviewer actually sends to the model is assembled in
 - **Grounding is mandatory.** Every finding must cite a line that exists in the
   diff or it is dropped (`groundFindings`), and the score is recomputed from the
   surviving findings — the model's self-reported score is ignored.
+- **The derived PR intent is in the prompt (M3).** Before agents fan out, the
+  pre-work reuses the PR's stored intent or reclassifies it when missing, stale or
+  failed (see Intent layer below). It renders after `## PR description` as
+  `## PR intent (derived)`: a trusted instruction to set `in_scope` on every finding,
+  then the intent inside `<untrusted source="pr-intent">`. Without an intent the
+  prompt is unchanged. After grounding, out-of-scope WARNING / SUGGESTION findings
+  are hidden (trace only) and out-of-scope CRITICAL ones collapse into one
+  `scope_notice` finding (`applyIntentScope`).
 
 ## Run cost (M1)
 
@@ -222,6 +232,103 @@ counted and logged, never stored.
 when its normalized rule equals a decided one, or when it cites an overlapping line range
 of the same file **in the same category** (`dedupe.ts`; the category condition lets one
 handler back several different conventions).
+
+## Intent layer (M3)
+
+A cheap model derives what a PR is for, so the reviewer can tell in-scope from unrelated
+findings. Spec: `../specs/M3-intent-layer.md`. Module: `modules/intent/`; the service is
+the shared `Container.intentService`, which the reviews module uses through its own
+`IntentProvider` port.
+
+- `GET /pulls/:id/intent` → `{ intent: PrIntentRecord | null }`. No GitHub or model call.
+  `stale` is computed on read: the PR head sha or the input hash (title, body, base, head
+  sha, classifier version) differs from the stored one. Unknown PR → 404.
+- `POST /pulls/:id/intent/classify` → `PrIntentRecord`. **Synchronous**: one model call plus
+  at most 10 sequential GitHub reads; rate limit 10/min. Concurrent calls for one PR share
+  one in-flight promise (also with a review's pre-work). A model failure or invalid shape →
+  502 with `status: 'failed'` recorded and the previous content kept. A missing LLM key →
+  `ConfigError`. No GitHub token → linked refs become `github_unavailable` missing entries
+  and the classification still runs.
+- `POST /pulls/:id/review` reclassifies in the shared pre-work when the intent is missing,
+  stale or failed ("Resolving PR intent" in the Live Log). On failure every run proceeds
+  without intent; `trace.intent` records the status and reason.
+
+**Inputs and caps** (`modules/intent/constants.ts`; each source is its own untrusted block):
+
+| Source | Read with | Cap |
+|---|---|---|
+| PR title | the PR row | 300 chars |
+| PR body | the PR row | 4,000 chars |
+| Linked same-repo issue / PR | `getIssue` | 6,000 chars per doc (title + body) |
+| Linked same-repo blob file | `getFileContent` (contents API, text only) | 200,000 bytes read; 6,000 chars per doc |
+| All linked docs together | | 20,000 chars; docs past it become `limit` |
+| Changed files | the raw diff: paths and `@@ … @@` hunk header lines only, never `+` / `-` / context lines | 300 files, 5 headers per file, 160 chars per header |
+| Linked references | | 10 (more become `limit`); at most 10 `missing_context` entries |
+
+**Link policy (GitHub only).** Recognised references: `#n`, `owner/repo#n`, and
+`github.com/<owner>/<repo>/(issues|pull)/n` or `/blob/<ref>/<path>` for **this** repo, read
+through the authenticated GitHub API, sequentially. Image URLs, CI / `actions` / badge
+links and the PR's own number are ignored. Everything else adds **no text**, only a
+`missing_context` entry `{ url, kind, reason }` (query and fragment stripped, 300 chars).
+There is no generic HTTP fetcher.
+
+| `reason` | When |
+|---|---|
+| `unsupported_host` | non-GitHub host (e.g. Linear), or a same-repo page that is not an issue / PR / blob (tree, commit, wiki) |
+| `cross_repo` | another repository's issue / PR / link |
+| `not_found` | 404 / 410, a directory / symlink, or an unusable blob path (`..`, empty, encoded separator) |
+| `forbidden` | 403 |
+| `github_unavailable` | no GitHub token, or any other GitHub error |
+| `too_large` | file over 200,000 bytes |
+| `binary` | file contains a NUL byte |
+| `limit` | over the reference count or the total doc cap |
+
+**Model:** the `review_intent` feature model. Settings default `openrouter` /
+`deepseek/deepseek-v4-flash` (`FEATURE_MODELS` in `src/vendor/shared/contracts/platform.ts`,
+mirrored in `client/src/lib/feature-models.ts`; a workspace override wins), resolved by
+`resolveFeatureModel`. Call: `completeStructured` with `maxRetries: 0`, temperature 0, a 60 s
+timeout and `requireParameters` (OpenRouter `provider.require_parameters`, so strict JSON
+schema is not silently dropped). Instructions: `src/prompts/intent.system.md`. The
+confidence is capped in code: a body under 40 chars → `low`; at least one linked doc read
+and no `not_found` / `forbidden` / `github_unavailable` entry → up to `high`; otherwise
+`medium`. The model's own value can only lower it.
+
+**Staleness.** `stale` on `PrIntentRecord` is true when the stored `head_sha` differs from
+the PR's, or the stored `input_hash` differs from `sha256([classifier version, title, body,
+base, head sha])`. `isReusable` (the review pre-work) also requires `status: 'ok'`.
+**Gap:** the hash does not cover edits to linked issues or docs after classification, so a
+PR can show as fresh with outdated linked context; use Reclassify for those.
+
+**Review pre-work.** `ReviewRunExecutor.resolveIntent` calls `IntentProvider.forReview`
+once per `POST /pulls/:id/review`, before agents fan out ("Resolving PR intent" step).
+Result `reused` (stored intent is fresh) or `classified` (missing / stale / failed →
+reclassified with the already-loaded diff). `forReview` never throws: on any error it
+returns `failed`, every agent runs **without** intent (no prompt section, no scope filter,
+pre-M3 findings), and `trace.intent` is `{ status, reason }` (also on the early-failure
+trace). A failed classification stores `status: 'failed'` + `error` and keeps the previous
+summary, scope and sources.
+
+**Scope filter** (`reviewer-core` `applyIntentScope`, after grounding, only when the run had
+an intent): out-of-scope WARNING / SUGGESTION findings are not persisted; they are listed in
+`trace.scope_filter.hidden` (`title`, `file`, `start_line`, `severity`) with `hidden_count`.
+Out-of-scope CRITICAL findings collapse into one `kind: 'scope_notice'` CRITICAL finding
+(`collapsed_count` in the trace). The score is recomputed from the final findings.
+
+**Logging:** one `log.info` per classification (`intent: classified PR #n …`) with `prId`,
+`trigger` (`manual` | `review`), provider, model, per-component
+`{ name, chars, estimated_tokens, truncated }` (tiktoken `cl100k_base`, an estimate),
+`estimated_tokens_total`, provider `usage`, `sources`, `missing` (`kind`, `url`, `reason`),
+`changed_files`, `hunk_headers`, `confidence`, `duration_ms` and `input_hash`. A failure logs
+one `log.warn` (`prId`, `trigger`, `model`, `code`, `status`, `message`, `duration_ms`).
+PR title, body, linked-doc, diff and hunk-header text are never logged. The review's Live
+Log gets one summary line (reused / classified with model, tokens, cost / unavailable).
+
+**UI:** the PR page's Agent runs tab shows `IntentCard` above the review results (summary,
+scope lists, confidence, sources, unreadable links, model and age, a stale badge,
+Classify / Reclassify). The run trace drawer shows the intent prompt block and a
+scope-filter line; `FindingCard` flags the `scope_notice`.
+
+Flow and sequence diagram: [`docs/intent-layer.md`](docs/intent-layer.md).
 
 ## PR-list findings
 
