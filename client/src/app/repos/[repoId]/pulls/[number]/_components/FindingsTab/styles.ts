@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 export const s = {
+  intentSection: { marginBottom: 24 } satisfies CSSProperties,
   reviewInProgress: {
     marginBottom: 18,
     display: "flex",

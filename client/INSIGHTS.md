@@ -88,6 +88,16 @@ _None yet._
   so "saved → open it" flows need an inline banner with a `next/link`. `IconName` has no
   `"Pencil"` (TS2322); use the `"Edit"` alias. `Skeleton` takes `height`/`width`, not `h`.
   Ref: `client/src/app/repos/[repoId]/conventions/_components/ConventionsView/ConventionsView.tsx`
+- **2026-11-27** — `@testing-library/user-event` is NOT a client dependency: a test importing it
+  fails with `Failed to resolve import "@testing-library/user-event"`. Use `fireEvent` from
+  `@testing-library/react` (every existing test does). For hook-level coverage without mocking
+  the hooks, wrap in a `QueryClient` (`retry: false`) and `vi.stubGlobal("fetch", …)` routing on
+  method + `new URL(url).pathname`; `vi.unstubAllGlobals()` in `afterEach`.
+  Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/IntentCard/IntentCard.test.tsx`
+- **2026-11-27** — `useFormatter().relativeTime(date)` in a component test logs
+  `IntlError: ENVIRONMENT_FALLBACK: The \`now\` parameter wasn't provided` on every render. Pass a
+  fixed `now={new Date(...)}` to `NextIntlClientProvider`; then the text is deterministic and
+  numeric ("1 day ago", not "yesterday"). Ref: `client/src/app/repos/[repoId]/pulls/[number]/_components/IntentCard/IntentCard.test.tsx`
 
 ## Recurring Errors & Fixes
 
@@ -154,6 +164,13 @@ _None yet._
   plus focus borders for all kit inputs, and the skill form's double spacing removed.
   130/130 tests, typecheck clean; verified over CDP against the live API (diff open,
   `color-scheme: dark`, focus border, delete → `/skills` + 404).
+- **2026-11-27** — M3 intent layer UI (plan `specs/M3-intent-layer/plans/2026-11-27-intent-layer.md`
+  WI-11/12): `hooks/intent.ts` (`intentKeys`, `usePrIntent`, `useClassifyIntent`),
+  `usePrRunInvalidation().invalidateIntent` (called on runs started + run done), `IntentCard` first in
+  `FindingsTab`, "Outside PR scope" badge on `scope_notice` findings, trace drawer "Intent (N tokens)"
+  block + "N hidden as out of scope · M collapsed" line, registry mirror set to "Intent classifier" /
+  openrouter deepseek-v4-flash with a parity test against the shared `FEATURE_MODELS`
+  (`src/lib/feature-models.test.ts`). 157/157 tests, typecheck clean. Not checked in a browser.
 
 ## Open Questions
 

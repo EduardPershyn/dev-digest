@@ -14,6 +14,7 @@ import {
   ConfidenceNum,
   Button,
   Markdown,
+  Badge,
   type Severity,
   type Category,
 } from "@devdigest/ui";
@@ -61,6 +62,12 @@ export function FindingCard({
           <div style={s.titleRow}>
             <span style={s.title(muted, dismissed)}>{f.title}</span>
             <CategoryTag category={f.category as Category} />
+            {/* M3 — the one finding that collects every out-of-scope CRITICAL. */}
+            {f.kind === "scope_notice" && (
+              <Badge color="var(--warn)" bg="var(--warn-bg)" icon="Target">
+                {t("finding.outsideScope")}
+              </Badge>
+            )}
             {accepted && <span style={s.acceptedTag}>{t("finding.accepted")}</span>}
             {dismissed && <span style={s.dismissedTag}>{t("finding.dismissed")}</span>}
           </div>
