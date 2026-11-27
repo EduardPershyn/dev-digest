@@ -9,7 +9,8 @@
     "replyToAuthor": "Reply to author",
     "replyPlaceholder": "Reply to the author about this finding…",
     "sendReply": "Send reply",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "outsideScope": "Outside PR scope"
   },
   "trifecta": {
     "lethal": "LETHAL TRIFECTA — ALL 3 PRESENT",
@@ -125,5 +126,51 @@
     "findingsInRun": "{count, plural, one {# finding} other {# findings}} in this run",
     "findingsMore": "+{count} more — see the run below",
     "findingsLabel": "Findings in this run: {summary}. Focus or hover for details."
+  },
+  "intent": {
+    "title": "PR intent",
+    "loading": "Loading PR intent…",
+    "loadFailed": "Couldn't load the PR intent: {error}",
+    "emptyTitle": "Not classified yet",
+    "emptyBody": "Classify this PR to derive what it changes and why. A review also classifies it automatically before the agents run.",
+    "classify": "Classify",
+    "reclassify": "Reclassify",
+    "inScope": "In scope",
+    "outOfScope": "Out of scope",
+    "noneListed": "none listed",
+    "confidence": {
+      "high": "High confidence",
+      "medium": "Medium confidence",
+      "low": "Low confidence"
+    },
+    "sources": "Sources used",
+    "missing": "Missing context",
+    "missingHint": "Linked but not read — nothing from these was used.",
+    "classifiedWith": "Classified with {model} · {when}",
+    "stale": "Outdated — the PR changed since classification",
+    "failedTitle": "Intent classification failed",
+    "failedNoIntent": "The last review ran without intent.",
+    "lastAttemptFailed": "The last classification attempt failed: {error}",
+    "classifyFailed": "Classification failed: {error}",
+    "unknownError": "unknown error",
+    "source": {
+      "pr_title": "PR title",
+      "pr_body": "PR description",
+      "issue": "Issue {ref}",
+      "pr": "Pull request {ref}",
+      "file": "File {ref}",
+      "changed_files": "Changed files"
+    },
+    "sourceEmpty": "{label} (empty)",
+    "reason": {
+      "unsupported_host": "not a GitHub link",
+      "cross_repo": "another repository",
+      "not_found": "not found",
+      "forbidden": "no access",
+      "github_unavailable": "GitHub not connected",
+      "too_large": "too large",
+      "binary": "binary file",
+      "limit": "over the link limit"
+    }
   }
 }

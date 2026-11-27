@@ -6,6 +6,7 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
+import { intentKeys } from "./intent";
 import type {
   FindingActionKind,
   PrReviewComment,
@@ -34,6 +35,10 @@ export function usePrRunInvalidation(prId: string | null | undefined) {
       },
       invalidateRunHistory: () => {
         if (prId) qc.invalidateQueries({ queryKey: reviewKeys.runs(prId) });
+      },
+      /** M3 — a review run may (re)classify the PR intent in its pre-work. */
+      invalidateIntent: () => {
+        if (prId) qc.invalidateQueries({ queryKey: intentKeys.detail(prId) });
       },
     }),
     [qc, prId],

@@ -1,4 +1,5 @@
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type { Finding, RunSummary, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { IntentBlockInput } from '@devdigest/reviewer-core';
 import type {
   AgentRecord,
   FindingRecord,
@@ -56,7 +57,7 @@ export interface ActiveRun {
   ran_at: string | null;
 }
 
-/** Persistence of reviews, findings, intent and the agent_runs/run_traces observability rows. */
+/** Persistence of reviews, findings and the agent_runs/run_traces observability rows. */
 export interface ReviewStore {
   // PR lookup (workspace-scoped)
   getPull(workspaceId: string, prId: string): Promise<PullRecord | undefined>;
@@ -74,9 +75,6 @@ export interface ReviewStore {
   ): Promise<{ finding: FindingRecord; review: ReviewRecord; pull: PullRecord } | undefined>;
   setFindingAccepted(findingId: string, at: Date | null): Promise<FindingRecord | undefined>;
   setFindingDismissed(findingId: string, at: Date | null): Promise<FindingRecord | undefined>;
-  // intent
-  upsertIntent(prId: string, intent: Intent): Promise<void>;
-  getIntent(prId: string): Promise<Intent | undefined>;
   // runs + traces
   activeRunsForPull(workspaceId: string, prId: string): Promise<ActiveRun[]>;
   listRunsForPull(workspaceId: string, prId: string): Promise<RunSummary[]>;
@@ -115,4 +113,37 @@ export interface SkillResolver {
 /** Token counter for per-skill attribution in the run trace (tiktoken in prod). */
 export interface TokenCounter {
   count(text: string): number;
+}
+
+/**
+ * M3 — the PR's derived intent for a review run, as the reviews module needs it.
+ * Implemented structurally by the intent module's `IntentService.forReview`
+ * (wired by the container; reviews never imports the intent module).
+ */
+export interface ReviewIntent {
+  status: 'reused' | 'classified' | 'failed';
+  /** Why no intent is available (status 'failed'). */
+  reason: string | null;
+  intent: {
+    block: IntentBlockInput;
+    confidence: string;
+    provider: string | null;
+    model: string | null;
+    sourcesUsed: number;
+    missing: number;
+    /** Set only when this pre-work paid for a classification. */
+    costUsd: number | null;
+    tokensIn: number | null;
+  } | null;
+}
+
+/** Review pre-work port: reuse a fresh intent or reclassify. Must never throw. */
+export interface IntentProvider {
+  forReview(
+    workspaceId: string,
+    pull: PullRecord,
+    repo: RepoRecord,
+    diff: UnifiedDiff,
+    log?: { info(obj: unknown, msg?: string): void; warn(obj: unknown, msg?: string): void },
+  ): Promise<ReviewIntent>;
 }

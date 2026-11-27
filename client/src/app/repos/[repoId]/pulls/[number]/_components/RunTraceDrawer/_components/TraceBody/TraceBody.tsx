@@ -21,6 +21,8 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
   const stats = trace.stats;
   const skillBlocks = trace.prompt_assembly.skill_blocks ?? [];
   const skillTokens = skillBlocks.reduce((n, b) => n + b.tokens, 0);
+  const intentBlock = trace.prompt_assembly.intent_block;
+  const scope = trace.scope_filter;
   return (
     <>
       <TraceSection icon="Settings" title={t("trace.configuration")}>
@@ -72,6 +74,12 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
       </TraceSection>
 
       <FindingsSection findings={findings} />
+      {scope && scope.hidden_count + scope.collapsed_count > 0 && (
+        // M3 — what the intent scope filter took out of (or folded into) the findings above.
+        <div style={s.scopeFilter}>
+          {t("trace.scopeFilter", { hidden: scope.hidden_count, collapsed: scope.collapsed_count })}
+        </div>
+      )}
 
       <TraceSection icon="FileText" title={t("trace.promptAssembly")} defaultOpen={false}>
         <PromptBlock label={t("trace.prompt.system")} text={trace.prompt_assembly.system} color={PROMPT_COLORS.system} />
@@ -108,6 +116,18 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         )}
         {trace.prompt_assembly.callers != null && (
           <PromptBlock label={t("trace.prompt.callers")} text={trace.prompt_assembly.callers} color={PROMPT_COLORS.callers} />
+        )}
+        {intentBlock && (
+          <PromptBlock
+            label={t("trace.prompt.intent", { tokens: formatInt(intentBlock.tokens) })}
+            text={intentBlock.text}
+            color={PROMPT_COLORS.intent}
+            meta={t("trace.prompt.intentMeta", {
+              confidence: intentBlock.confidence,
+              sources: intentBlock.sources_used,
+              missing: intentBlock.missing,
+            })}
+          />
         )}
         <PromptBlock label={t("trace.prompt.user")} text={trace.prompt_assembly.user} color={PROMPT_COLORS.user} />
       </TraceSection>

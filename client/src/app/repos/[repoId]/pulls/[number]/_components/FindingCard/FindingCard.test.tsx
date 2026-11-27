@@ -57,4 +57,17 @@ describe("FindingCard (smoke, both themes)", () => {
     fireEvent.click(screen.getByText("Dismiss"));
     expect(onAction).toHaveBeenCalledWith("dismiss");
   });
+
+  it("M3: marks the scope notice with an Outside PR scope badge, and only it", () => {
+    renderWithIntl(
+      <FindingCard
+        f={{ ...FINDING, id: "scope-notice", kind: "scope_notice", in_scope: false, title: "2 critical issue(s) outside this PR's stated scope" }}
+        onAction={() => {}}
+      />,
+    );
+    expect(screen.getByText(messages.finding.outsideScope)).toBeInTheDocument();
+    cleanup();
+    renderWithIntl(<FindingCard f={FINDING} onAction={() => {}} />);
+    expect(screen.queryByText(messages.finding.outsideScope)).not.toBeInTheDocument();
+  });
 });

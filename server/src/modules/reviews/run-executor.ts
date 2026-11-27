@@ -10,7 +10,14 @@ import type {
   RepoRecord,
   ReviewRecord,
 } from '../_shared/records.js';
-import type { ResolvedSkill, ReviewStore, SkillResolver, TokenCounter } from './ports.js';
+import type {
+  IntentProvider,
+  ResolvedSkill,
+  ReviewIntent,
+  ReviewStore,
+  SkillResolver,
+  TokenCounter,
+} from './ports.js';
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
@@ -58,6 +65,11 @@ export interface ReviewRunDeps {
   skills?: SkillResolver;
   /** M2 — per-skill token counts in the trace. Absent → tokens recorded as 0. */
   tokens?: TokenCounter;
+  /**
+   * M3 — derived PR intent (reuse or reclassify in the shared pre-work).
+   * Absent → no intent section, no scope filter (pre-M3 prompt and findings).
+   */
+  intent?: IntentProvider;
 }
 
 export class ReviewRunExecutor {
@@ -127,6 +139,10 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // M3 — ONE intent resolution for every queued run, before agents fan out.
+    // Never fails the runs: on error every agent reviews without intent.
+    const intent = await this.resolveIntent(workspaceId, pull, repo, diff, runLog, logger);
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -134,7 +150,7 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog, intent);
         logger?.info(
           {
             runId,
@@ -166,6 +182,7 @@ export class ReviewRunExecutor {
     agent: AgentRecord,
     runId: string,
     parentLog: RunLogger,
+    intent: ReviewIntent | null = null,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -232,6 +249,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // M3 — derived intent (untrusted); omitted when unavailable, so the
+        // prompt and findings are exactly the pre-M3 ones.
+        ...(intent?.intent ? { intent: intent.intent.block } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -299,7 +319,7 @@ export class ReviewRunExecutor {
           grounding,
           cost_usd: costUsd,
         },
-        prompt_assembly: this.withSkillTokens(outcome.assembly),
+        prompt_assembly: this.withIntentBlock(this.withSkillTokens(outcome.assembly), intent),
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -312,6 +332,21 @@ export class ReviewRunExecutor {
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
+        ...(intent ? { intent: { status: intent.status, reason: intent.reason } } : {}),
+        ...(outcome.scope
+          ? {
+              scope_filter: {
+                hidden: outcome.scope.hidden.map((f) => ({
+                  title: f.title,
+                  file: f.file,
+                  start_line: f.start_line,
+                  severity: f.severity,
+                })),
+                hidden_count: outcome.scope.hidden.length,
+                collapsed_count: outcome.scope.collapsedCount,
+              },
+            }
+          : {}),
       };
       runLog.info('Run complete; trace persisted');
       await this.repo.saveRunTrace(runId, trace);
@@ -338,7 +373,10 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start))
+        .saveRunTrace(
+          runId,
+          this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, intent),
+        )
         .catch(() => undefined);
       this.runBus.complete(runId);
       throw err;
@@ -364,6 +402,64 @@ export class ReviewRunExecutor {
       runLog.info(`skills: lookup failed — reviewing without skills (${(err as Error).message})`);
       return [];
     }
+  }
+
+  /**
+   * M3 — resolve the PR intent once for all queued runs, with a Live Log line.
+   * Returns null when no intent provider is wired (pre-M3 behaviour).
+   */
+  private async resolveIntent(
+    workspaceId: string,
+    pull: PullRecord,
+    repo: RepoRecord,
+    diff: UnifiedDiff,
+    runLog: RunLogger,
+    logger?: Logger,
+  ): Promise<ReviewIntent | null> {
+    const provider = this.deps.intent;
+    if (!provider) return null;
+    let res: ReviewIntent;
+    try {
+      res = await runLog.step(
+        'Resolving PR intent',
+        () => provider.forReview(workspaceId, pull, repo, diff, logger),
+        { kind: 'tool' },
+      );
+    } catch (err) {
+      // The port must not throw; degrade anyway so a bug can't break the runs.
+      res = { status: 'failed', reason: (err as Error).message, intent: null };
+    }
+    const i = res.intent;
+    if (res.status === 'reused' && i) {
+      runLog.info(`intent: reused (${i.confidence}, ${i.sourcesUsed} sources, ${i.missing} missing)`);
+    } else if (res.status === 'classified' && i) {
+      const cost = i.costUsd == null ? '$?' : `$${i.costUsd.toFixed(4)}`;
+      runLog.info(
+        `intent: classified with ${i.model ?? 'unknown model'} (${i.tokensIn ?? '?'} tokens in, ${cost})`,
+      );
+    } else {
+      runLog.info(`intent: unavailable — reviewing without intent (${res.reason ?? 'unknown error'})`);
+    }
+    return res;
+  }
+
+  /** M3 — fill the intent block's token count, model and sources (the engine leaves them empty). */
+  private withIntentBlock(
+    assembly: RunTrace['prompt_assembly'],
+    intent: ReviewIntent | null,
+  ): RunTrace['prompt_assembly'] {
+    const block = assembly.intent_block;
+    if (!block || !intent?.intent) return assembly;
+    return {
+      ...assembly,
+      intent_block: {
+        ...block,
+        tokens: this.deps.tokens ? this.deps.tokens.count(block.text) : 0,
+        model: intent.intent.model,
+        sources_used: intent.intent.sourcesUsed,
+        missing: intent.intent.missing,
+      },
+    };
   }
 
   /** M2 — fill each skill block's token count (the engine leaves it 0). */
@@ -474,6 +570,7 @@ export class ReviewRunExecutor {
     agent: AgentRecord,
     grounding: string,
     durationMs = 0,
+    intent: ReviewIntent | null = null,
   ): RunTrace {
     return {
       config: {
@@ -491,6 +588,7 @@ export class ReviewRunExecutor {
       memory_pulled: [],
       specs_read: [],
       log: this.runBus.buffer(runId).map((e) => ({ t: e.t, kind: e.kind, msg: e.msg })),
+      ...(intent ? { intent: { status: intent.status, reason: intent.reason } } : {}),
     };
   }
 }

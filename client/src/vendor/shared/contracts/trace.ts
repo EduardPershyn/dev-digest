@@ -52,6 +52,20 @@ export const PromptSkillBlock = z.object({
 });
 export type PromptSkillBlock = z.infer<typeof PromptSkillBlock>;
 
+/**
+ * M3 — the `## PR intent (derived)` section as rendered into the prompt.
+ * `tokens`, `model` and `sources_used` are filled in by the server.
+ */
+export const PromptIntentBlock = z.object({
+  text: z.string(),
+  tokens: z.number().int(),
+  confidence: z.string(),
+  model: z.string().nullable(),
+  sources_used: z.number().int(),
+  missing: z.number().int(),
+});
+export type PromptIntentBlock = z.infer<typeof PromptIntentBlock>;
+
 export const PromptAssembly = z.object({
   system: z.string(),
   /** The whole `## Skills / rules` section (kept for older consumers/traces). */
@@ -66,6 +80,8 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** M3 — the derived-intent section; absent when the review ran without intent. */
+  intent_block: PromptIntentBlock.nullish(),
   user: z.string(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
@@ -105,6 +121,28 @@ export const RunTrace = z.object({
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
   log: z.array(RunLogLine),
+  /** M3 — findings removed or collapsed by the intent scope filter. */
+  scope_filter: z
+    .object({
+      hidden: z.array(
+        z.object({
+          title: z.string(),
+          file: z.string(),
+          start_line: z.number().int(),
+          severity: z.string(),
+        }),
+      ),
+      hidden_count: z.number().int(),
+      collapsed_count: z.number().int(),
+    })
+    .nullish(),
+  /** M3 — how the PR intent was obtained for this run. */
+  intent: z
+    .object({
+      status: z.enum(['reused', 'classified', 'failed', 'none']),
+      reason: z.string().nullish(),
+    })
+    .nullish(),
 });
 export type RunTrace = z.infer<typeof RunTrace>;
 

@@ -67,6 +67,12 @@ export interface StructuredRequest<T> {
    * the `session_id` body field; ignored by providers that don't support it.
    */
   sessionId?: string;
+  /**
+   * M3 — ask the router to use only upstream providers that honour every
+   * request parameter (OpenRouter `provider.require_parameters`), so strict
+   * json_schema is not silently dropped. Ignored by other providers.
+   */
+  requireParameters?: boolean;
 }
 
 export interface StructuredResult<T> {
@@ -140,6 +146,14 @@ export interface CommitFilesPayload {
   files: CommitFile[];
 }
 
+/**
+ * M3 — result of reading one repo file through the contents API. Failures are
+ * typed (not thrown) so callers can record them as missing context.
+ */
+export type GitHubFileContent =
+  | { status: 'ok'; text: string; sha: string; size: number }
+  | { status: 'not_found' | 'forbidden' | 'too_large' | 'binary' };
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -162,6 +176,11 @@ export interface GitHubClient {
   /** The open PR whose head is `branch`, if any (so re-publish reuses it). */
   findOpenPr(repo: RepoRef, branch: string): Promise<{ url: string } | null>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /**
+   * M3 — UTF-8 text of `path` at `ref` (contents API), capped at 200 KB.
+   * Directories/symlinks → `not_found`; NUL bytes → `binary`.
+   */
+  getFileContent(repo: RepoRef, path: string, ref: string): Promise<GitHubFileContent>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }

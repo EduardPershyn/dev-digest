@@ -6,12 +6,67 @@ import { z } from 'zod';
  */
 
 // ---- Intent ----
+/** Caps shared by the classifier output and the persisted record. */
+const IntentScopeList = z.array(z.string().max(200)).max(10);
+
 export const Intent = z.object({
-  intent: z.string(),
-  in_scope: z.array(z.string()),
-  out_of_scope: z.array(z.string()),
+  /** What the PR changes and why, in at most 3 sentences. */
+  summary: z.string().max(600),
+  /** Functional areas / files the PR deliberately changes. */
+  in_scope: IntentScopeList,
+  /** Functional areas / files the PR deliberately leaves alone. */
+  out_of_scope: IntentScopeList,
 });
 export type Intent = z.infer<typeof Intent>;
+
+export const IntentConfidence = z.enum(['high', 'medium', 'low']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+export const IntentSourceKind = z.enum([
+  'pr_title',
+  'pr_body',
+  'issue',
+  'pr',
+  'file',
+  'changed_files',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+/** One input the classifier actually read (no content, only its size). */
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  /** `#12`, a repo path, or the kind itself for title/body/changed files. */
+  ref: z.string(),
+  title: z.string().nullish(),
+  chars: z.number().int(),
+  truncated: z.boolean(),
+  status: z.enum(['used', 'empty']),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+/** A linked document the classifier could NOT read; adds no text to the prompt. */
+export const IntentMissingContext = z.object({
+  /** Query string and fragment stripped. */
+  url: z.string(),
+  kind: z.enum(['external', 'cross_repo', 'issue', 'pr', 'file']),
+  reason: z.enum([
+    'unsupported_host',
+    'cross_repo',
+    'not_found',
+    'forbidden',
+    'github_unavailable',
+    'too_large',
+    'binary',
+    'limit',
+  ]),
+});
+export type IntentMissingContext = z.infer<typeof IntentMissingContext>;
+
+/** LLM output of the intent classifier (strict-json-schema friendly). */
+export const IntentClassification = Intent.extend({
+  confidence: IntentConfidence,
+});
+export type IntentClassification = z.infer<typeof IntentClassification>;
 
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({

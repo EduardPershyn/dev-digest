@@ -127,4 +127,5 @@ export const s = {
   tabBody: { paddingTop: 18 } satisfies CSSProperties,
   emptyNote: { fontSize: 13, color: "var(--text-muted)", padding: 16 } satisfies CSSProperties,
   noToolCalls: { fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  scopeFilter: { fontSize: 13, color: "var(--text-muted)", margin: "-4px 0 16px" } satisfies CSSProperties,
 } as const;

@@ -35,6 +35,10 @@ calls the LLM, validates every finding against the diff (the **grounding gate**
 drops hallucinated line references), and persists structured findings with a
 severity and score. All local; the only outbound calls are to GitHub (PR data)
 and the LLM (via OpenRouter).
+Since M3, the server first derives the PR's intent with one cheap model call (title,
+body, linked same-repo GitHub docs, changed paths + hunk headers) and passes it to
+`reviewer-core`, which adds a `## PR intent (derived)` prompt section and hides or
+collapses out-of-scope findings after grounding (`../specs/M3-intent-layer.md`).
 
 Each package has its own README with deeper diagrams:
 [`client`](../client/README.md) (UI route map) ·

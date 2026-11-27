@@ -5,6 +5,7 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { IntentCard } from "../IntentCard";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -81,6 +82,13 @@ export function FindingsTab({
 
   return (
     <section>
+      {/* M3 — the PR's derived intent sits above the review results. */}
+      {prId && (
+        <div style={s.intentSection}>
+          <IntentCard prId={prId} />
+        </div>
+      )}
+
       {liveRunIds.length > 0 && (
         <div style={s.liveRunSection}>
           <SectionLabel

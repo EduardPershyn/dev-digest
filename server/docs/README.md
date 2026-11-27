@@ -5,6 +5,7 @@ testing). This folder holds material too long for it: design notes, ADRs, how-to
 
 | Doc | Read when |
 |-----|-----------|
+| [`intent-layer.md`](intent-layer.md) | understanding how intent classification and a review fit together (M3) |
 | [`../src/modules/repo-intel/README.md`](../src/modules/repo-intel/README.md) | touching the indexer or its facade |
 
 **Rule:** docs describe how things *are*; planned work belongs in [`../specs/`](../specs/README.md).

@@ -30,6 +30,8 @@ postgres 3.4 · zod 3.25 · tsx · vitest 2.1 · testcontainers · pgvector (pg1
 
 ## Gotchas
 - Any test importing `test/helpers/pg.ts` MUST be named `*.it.test.ts`, or the CI split breaks.
+- Tests build the app via `test/helpers/app.ts` `buildTestApp` (hermetic secrets — `server/.env` may hold a
+  real paid key); `test/hermetic-app.test.ts` fails on a direct `../src/app.js` import.
 - The schema already holds every milestone's tables. Empty tables are planned, not dead code.
 - Secrets go through `SecretsProvider` only — not `process.env` directly, never the DB.
 - Reviews are fire-and-forget after `POST /pulls/:id/review`; progress flows over the SSE `runBus`.
@@ -42,6 +44,7 @@ postgres 3.4 · zod 3.25 · tsx · vitest 2.1 · testcontainers · pgvector (pg1
 - Adding/changing any module, route, service, repository, adapter or job → `onion-architecture` skill
 - Adding/changing a route, env var, or prompt context → `README.md`
 - Touching indexing, repo map, file rank, callers → `src/modules/repo-intel/README.md`
+- Intent classification, linked-doc fetching or the review scope filter → `docs/intent-layer.md`
 - Changing the engine call in `src/modules/reviews/run-executor.ts` → `../reviewer-core/README.md`
 - Adding tests → `../TESTING.md`
 - Before starting → `INSIGHTS.md` · planned work → `specs/` · deeper docs → `docs/`

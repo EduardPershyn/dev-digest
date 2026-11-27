@@ -47,7 +47,7 @@ export function PrDetailView() {
 
   // Live run tracking is SERVER-SOURCED (agent_runs status='running'): survives
   // navigation AND reload, and self-clears via polling when runs finish.
-  const { invalidateActiveRuns, invalidateRunHistory } = usePrRunInvalidation(prId);
+  const { invalidateActiveRuns, invalidateRunHistory, invalidateIntent } = usePrRunInvalidation(prId);
   const { data: activeRuns } = usePrActiveRuns(prId);
   const { data: prRuns } = usePrRuns(prId);
   const deleteRun = useDeleteRun(prId);
@@ -131,7 +131,10 @@ export function PrDetailView() {
         githubUrl={repoFullName ? githubPrUrl(repoFullName, pr.number) : null}
         onSetTab={setTab}
         onRunStart={() => setTab("findings")}
-        onRunsStarted={() => invalidateActiveRuns()}
+        onRunsStarted={() => {
+          invalidateActiveRuns();
+          invalidateIntent();
+        }}
       />
 
       <div style={{ padding: "24px 32px 44px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 1080, margin: "0 auto" }}>
@@ -157,6 +160,7 @@ export function PrDetailView() {
             onRunDone={() => {
               invalidateActiveRuns();
               invalidateRunHistory();
+              invalidateIntent();
               refetchReviews();
             }}
           />

@@ -56,13 +56,16 @@
       "noMatches": "No matches for “{q}”.",
       "skillsHeader": "Skills — {count, plural, one {# block} other {# blocks}} · +{tokens} tokens",
       "skillBlock": "Skill · {name} · v{version}",
-      "skillTokens": "+{tokens} tok"
+      "skillTokens": "+{tokens} tok",
+      "intent": "Intent ({tokens} tokens)",
+      "intentMeta": "{confidence} · {sources, plural, one {# source} other {# sources}} · {missing} missing"
     },
     "tools": {
       "args": "args",
       "result": "result",
       "previewTruncated": "(preview truncated)"
-    }
+    },
+    "scopeFilter": "{hidden, plural, one {# finding} other {# findings}} hidden as out of scope · {collapsed} collapsed"
   },
   "drawer": {
     "title": "Agent run · {agent}",

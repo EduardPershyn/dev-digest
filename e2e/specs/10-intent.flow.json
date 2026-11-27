@@ -1,0 +1,20 @@
+{
+  "name": "PR intent card shows the seeded intent; Settings lists the Intent classifier (M3)",
+  "description": "From PR #482, open the Agent runs tab and confirm the IntentCard renders above the review results with the seeded intent: its summary, the Linear link it could not read (missing context) and the model that classified it. The Reclassify button is located by role but never clicked (it would make a model call). Then /settings/models shows the Intent classifier picker. Read-only seeded data (no model call, nothing is written). Spec: specs/M3-intent-layer.md.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/"], "label": "load the app root" },
+    { "cmd": ["wait", "--url", "/pulls"], "label": "land on the PR list" },
+    { "cmd": ["find", "text", "Add rate limiting to public API endpoints", "click"], "label": "open the PR row" },
+    { "cmd": ["wait", "--url", "/pulls/482"], "label": "navigate to the PR detail route" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "PR detail data settles" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Agent runs"], "label": "switch to the Agent runs tab" },
+    { "cmd": ["wait", "--url", "tab=findings"], "label": "findings tab is active in the URL" },
+    { "cmd": ["wait", "--text", "Adds per-IP rate limiting to the public API endpoints."], "label": "intent card shows the seeded summary" },
+    { "cmd": ["wait", "--text", "linear.app/acme/issue/PAY-12"], "label": "missing-context list shows the unread Linear link" },
+    { "cmd": ["wait", "--text", "deepseek/deepseek-v4-flash"], "label": "intent card shows the classifier model" },
+    { "cmd": ["find", "role", "button", "hover", "--name", "Reclassify"], "label": "Reclassify button is present (hovered, never clicked)" },
+    { "cmd": ["open", "{BASE}/settings/models"], "label": "load the Feature Models settings section" },
+    { "cmd": ["wait", "--url", "/settings/models"], "label": "models route reached" },
+    { "cmd": ["wait", "--text", "Intent classifier"], "label": "the Intent classifier picker renders" }
+  ]
+}

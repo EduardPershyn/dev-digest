@@ -11,6 +11,8 @@
  * record, not the snake_case API contract in `@devdigest/shared`.
  */
 
+import type { IntentMissingContext, IntentSource } from '@devdigest/shared';
+
 export interface RepoRecord {
   id: string;
   workspaceId: string;
@@ -92,6 +94,29 @@ export interface ConventionRecord {
   evidenceStartLine: number | null;
   evidenceEndLine: number | null;
   evidenceSha: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** M3 — the derived intent of one PR (`pr_intent`, specs/M3-intent-layer.md). */
+export interface IntentRecord {
+  prId: string;
+  summary: string;
+  inScope: string[];
+  outOfScope: string[];
+  confidence: 'high' | 'medium' | 'low';
+  sources: IntentSource[];
+  missingContext: IntentMissingContext[];
+  provider: string | null;
+  model: string | null;
+  headSha: string | null;
+  inputHash: string | null;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  costUsd: number | null;
+  status: 'ok' | 'failed';
+  error: string | null;
+  classifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildApp } from '../src/app.js';
+import { buildTestApp as buildApp } from './helpers/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import type { SecretsProvider } from '../src/domain/ports/secrets.js';
 import type { LLMProvider } from '../src/domain/ports/llm.js';

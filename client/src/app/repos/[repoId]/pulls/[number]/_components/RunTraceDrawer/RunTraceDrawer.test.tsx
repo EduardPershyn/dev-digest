@@ -99,4 +99,41 @@ describe("A5 Run Trace drawer (smoke)", () => {
     expect(screen.getByText("Skills (dynamic)")).toBeInTheDocument();
     expect(screen.queryByTestId("skill-blocks")).not.toBeInTheDocument();
   });
+
+  it("M3: shows the intent prompt block with its token count and the scope-filter line", () => {
+    const original = { prompt_assembly: TRACE.prompt_assembly, scope_filter: TRACE.scope_filter };
+    TRACE.prompt_assembly = {
+      ...original.prompt_assembly,
+      intent_block: {
+        text: '<untrusted source="pr-intent">Adds rate limiting</untrusted>',
+        tokens: 1234,
+        confidence: "medium",
+        model: "deepseek/deepseek-v4-flash",
+        sources_used: 3,
+        missing: 1,
+      },
+    };
+    TRACE.scope_filter = {
+      hidden: [{ title: "Unrelated nit", file: "src/billing.ts", start_line: 4, severity: "SUGGESTION" }],
+      hidden_count: 1,
+      collapsed_count: 2,
+    };
+    try {
+      renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+      expect(screen.getByText("1 finding hidden as out of scope · 2 collapsed")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Prompt assembly"));
+      expect(screen.getByText("Intent (1,234 tokens)")).toBeInTheDocument();
+      expect(screen.getByText("medium · 3 sources · 1 missing")).toBeInTheDocument();
+    } finally {
+      TRACE.prompt_assembly = original.prompt_assembly;
+      TRACE.scope_filter = original.scope_filter;
+    }
+  });
+
+  it("M3: shows neither the intent block nor the scope line for a run without intent", () => {
+    renderWithIntl(<RunTraceDrawer runId="r1" agentName="Security" prNumber={482} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("Prompt assembly"));
+    expect(screen.queryByText(/^Intent \(/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hidden as out of scope/)).not.toBeInTheDocument();
+  });
 });
