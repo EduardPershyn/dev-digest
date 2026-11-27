@@ -12,7 +12,7 @@ Agents load at session start. After adding or editing a file, restart the sessio
 | Agent | Role | Writes files? | Model · effort | Max turns |
 |---|---|---|---|---|
 | [researcher](researcher.md) | Answers one concrete question from the repo, external docs, or both | No | `sonnet` · default | — |
-| [planner](planner.md) | Turns a request or spec into a Development Plan | No | `opus` · high | 40 |
+| [planner](planner.md) | Turns a request or spec into a Development Plan | No | `opus` · high | 60 |
 | [implementer](implementer.md) | Executes an approved plan, then verifies its own changes | Yes | `inherit` · medium | 150 |
 | [test-writer](test-writer.md) | Writes UI/backend tests and e2e flows; proves each test can fail | Test files only | `inherit` · medium | 100 |
 | [plan-verifier](plan-verifier.md) | Checks the finished work against every plan item and requirement | No | `opus` · high | 60 |

@@ -8,7 +8,7 @@ skills:
   - frontend-ui-architecture
 model: opus
 effort: high
-maxTurns: 40
+maxTurns: 60
 color: blue
 hooks:
   PreToolUse:
@@ -54,6 +54,13 @@ I can't plan yet because: <one line>.
 ```
 
 At most 3 questions. Otherwise skip this step silently.
+
+**Exploration budget (applies to Steps 1–4).** Spend at most ~30 turns exploring, then write
+the plan. Read targeted ranges (`rg -n`, then Read with `offset`/`limit`), not whole large
+files (`sed` is blocked by the hook). If the brief already hands you context (user decisions,
+research findings, `file:line` facts), trust it — don't re-derive it. Anything still unread
+or unverified goes into "8. Risks & open questions" marked *unverified*; don't read it now.
+Running out of turns without a plan is the worst outcome — a plan with listed gaps is better.
 
 ## Step 1 — Read the map (always, even if it seems known)
 
