@@ -135,4 +135,77 @@ describe('reviewPullRequest (engine)', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((s) => s === 'sess-abc')).toBe(true);
   });
+
+  describe('M3 intent scope', () => {
+    const f = (id: string, severity: string, in_scope: boolean, confidence = 0.8) => ({
+      id,
+      severity,
+      category: 'bug',
+      title: `finding ${id}`,
+      file: 'src/config.ts',
+      start_line: 11,
+      end_line: 11,
+      rationale: `rationale ${id}`,
+      confidence,
+      kind: 'finding',
+      in_scope,
+    });
+    const scoped = {
+      verdict: 'request_changes',
+      summary: 's',
+      score: 10,
+      findings: [
+        f('in-warn', 'WARNING', true),
+        f('oos-sugg', 'SUGGESTION', false),
+        f('oos-crit-1', 'CRITICAL', false, 0.6),
+        f('oos-crit-2', 'CRITICAL', false, 0.9),
+      ],
+    };
+    const intent = {
+      summary: 'Adds rate limiting.',
+      in_scope: ['Rate limiter'],
+      out_of_scope: ['Billing'],
+      confidence: 'medium',
+      missing_context: [],
+    };
+
+    it('with intent: 1 in-scope WARNING + 1 notice kept, the OOS SUGGESTION hidden', async () => {
+      const llm = new MockLLMProvider('openai', { structured: scoped });
+      const diff = await new MockGitClient().diff();
+      const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, intent });
+
+      expect(outcome.review.findings).toHaveLength(2);
+      expect(outcome.review.findings.map((x) => x.id)).toEqual(['in-warn', 'scope-notice']);
+      const notice = outcome.review.findings[1]!;
+      expect(notice.kind).toBe('scope_notice');
+      expect(notice.severity).toBe('CRITICAL');
+      expect(notice.confidence).toBe(0.9);
+      expect(outcome.scope?.hidden.map((x) => x.id)).toEqual(['oos-sugg']);
+      expect(outcome.scope?.collapsedCount).toBe(2);
+      // score recomputed from the final set: 1 WARNING + 1 CRITICAL notice
+      expect(outcome.review.score).toBeLessThan(100);
+      expect(outcome.assembly.intent_block).toBeTruthy();
+    });
+
+    it('without intent: every grounded finding is kept and scope is null', async () => {
+      const llm = new MockLLMProvider('openai', { structured: scoped });
+      const diff = await new MockGitClient().diff();
+      const outcome = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm });
+
+      expect(outcome.review.findings).toHaveLength(4);
+      expect(outcome.scope).toBeNull();
+      expect(outcome.assembly.intent_block).toBeUndefined();
+    });
+
+    it('scores the final set (hidden findings do not count)', async () => {
+      const llm = new MockLLMProvider('openai', { structured: scoped });
+      const diff = await new MockGitClient().diff();
+      const withIntent = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm, intent });
+      const llm2 = new MockLLMProvider('openai', {
+        structured: { ...scoped, findings: [f('in-warn', 'WARNING', true), f('c', 'CRITICAL', true)] },
+      });
+      const reference = await reviewPullRequest({ systemPrompt: 's', model: 'm', diff, llm: llm2 });
+      expect(withIntent.review.score).toBe(reference.review.score);
+    });
+  });
 });

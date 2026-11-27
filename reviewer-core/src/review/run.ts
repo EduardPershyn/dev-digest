@@ -7,9 +7,10 @@ import type {
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt, type SkillBlockInput } from '../prompt.js';
+import { assemblePrompt, type IntentBlockInput, type SkillBlockInput } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
+import { applyIntentScope } from './scope.js';
 
 /**
  * reviewPullRequest — the review engine entry point.
@@ -19,7 +20,7 @@ import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
  * This is the pure core lifted out of the server's `ReviewService.runOneAgent`:
  * assemble prompt → single-pass OR map-reduce per file → reduce → SHARED
  * citation-grounding gate. It performs NO I/O beyond the injected LLM provider
- * (no DB, GitHub, fs, memory retrieval, intent, or persistence) — those stay in
+ * (no DB, GitHub, fs, memory retrieval, intent classification, or persistence) — those stay in
  * the caller (server persists + streams SSE; runner posts + writes an artifact).
  *
  * Skill bodies / memory / specs are RESOLVED strings here: the caller turns
@@ -71,6 +72,12 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * M3 — derived PR intent (untrusted). When present, the prompt gains the
+   * `## PR intent (derived)` section and `applyIntentScope` runs after grounding.
+   * Undefined → prompt and findings exactly as before.
+   */
+  intent?: IntentBlockInput;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -110,6 +117,11 @@ export interface ReviewOutcome {
   costUsd: number | null;
   /** Joined raw model outputs (for the run trace). */
   raw: string;
+  /**
+   * M3 — intent scope filter result; null when the review ran without intent.
+   * `hidden` findings are NOT in `review.findings` (trace only).
+   */
+  scope: { hidden: Finding[]; collapsedCount: number } | null;
 }
 
 function selectMode(strategy: ReviewStrategy, diff: UnifiedDiff, threshold: number): ReviewMode {
@@ -135,6 +147,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 
@@ -201,11 +214,25 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   }
   emit('result', `Citation grounding: ${grounding}`);
 
-  // Score is derived from the findings that SURVIVED grounding (not the model's
-  // self-reported number, and not the pre-grounding set) so the score, the
-  // findings list, and the deterministic event always agree.
+  // M3 — scope filter, only when the prompt carried an intent (so a review
+  // without intent keeps every grounded finding, as before).
+  let findings = ground.kept;
+  let scope: ReviewOutcome['scope'] = null;
+  if (assembly.intent_block) {
+    const scoped = applyIntentScope(ground.kept);
+    findings = scoped.kept;
+    scope = { hidden: scoped.hidden, collapsedCount: scoped.collapsed.length };
+    emit(
+      'info',
+      `Intent scope: ${scoped.hidden.length} hidden, ${scoped.collapsed.length} collapsed into a notice`,
+    );
+  }
+
+  // Score is derived from the FINAL findings (after grounding and the scope
+  // filter — not the model's self-reported number) so the score, the findings
+  // list, and the deterministic event always agree.
   return {
-    review: { ...merged, findings: ground.kept, score: scoreFromFindings(ground.kept) },
+    review: { ...merged, findings, score: scoreFromFindings(findings) },
     grounding,
     dropped: ground.dropped,
     mode,
@@ -215,5 +242,6 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     tokensOut,
     costUsd,
     raw: raws.join('\n---\n'),
+    scope,
   };
 }

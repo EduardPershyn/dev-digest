@@ -16,7 +16,9 @@ export {
   assemblePrompt,
   wrapUntrusted,
   renderSkillBlock,
+  renderIntentText,
   type SkillBlockInput,
+  type IntentBlockInput,
   type PromptParts,
   type AssembledPrompt,
 } from './prompt.js';
@@ -35,6 +37,14 @@ export {
 
 // Map-reduce helpers (reduce partials, slice a file's diff).
 export { reduceReviews, sliceDiff } from './review/reduce.js';
+
+// M3 — intent scope filter (runs after grounding when an intent is present).
+export {
+  applyIntentScope,
+  SCOPE_COLLAPSE_SEVERITY,
+  SCOPE_NOTICE_ID,
+  type IntentScopeResult,
+} from './review/scope.js';
 
 // The engine entry point: given (diff + resolved agent inputs + LLM) → grounded Review.
 export {
