@@ -15,6 +15,9 @@ import {
   Settings,
   Repo,
   PrDetail,
+  IntentClassification,
+  PrIntentRecord,
+  PrIntentResponse,
 } from '@devdigest/shared';
 
 /**
@@ -67,7 +70,7 @@ describe('AI contracts parse fixtures', () => {
 
   it('Intent / BlastRadius / Risks / PrHistory', () => {
     expect(() =>
-      Intent.parse({ intent: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
+      Intent.parse({ summary: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
     ).not.toThrow();
     expect(() =>
       BlastRadius.parse({
@@ -210,5 +213,74 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('M3 intent contracts', () => {
+  const baseFinding = {
+    id: 'f1',
+    severity: 'WARNING' as const,
+    category: 'bug' as const,
+    title: 't',
+    file: 'a.ts',
+    start_line: 1,
+    end_line: 2,
+    rationale: 'r',
+    confidence: 0.5,
+  };
+
+  it('Intent caps: summary ≤600, ≤10 scope items of ≤200 chars', () => {
+    const ok = { summary: 's'.repeat(600), in_scope: Array(10).fill('a'.repeat(200)), out_of_scope: [] };
+    expect(Intent.safeParse(ok).success).toBe(true);
+    expect(Intent.safeParse({ ...ok, summary: 's'.repeat(601) }).success).toBe(false);
+    expect(Intent.safeParse({ ...ok, in_scope: Array(11).fill('a') }).success).toBe(false);
+    expect(Intent.safeParse({ ...ok, out_of_scope: ['a'.repeat(201)] }).success).toBe(false);
+  });
+
+  it('IntentClassification requires a known confidence', () => {
+    const base = { summary: 's', in_scope: [], out_of_scope: [] };
+    expect(IntentClassification.safeParse({ ...base, confidence: 'medium' }).success).toBe(true);
+    expect(IntentClassification.safeParse({ ...base, confidence: 'certain' }).success).toBe(false);
+    expect(IntentClassification.safeParse(base).success).toBe(false);
+  });
+
+  it('Finding.in_scope may be absent, true or false', () => {
+    expect(Finding.parse(baseFinding).in_scope).toBeUndefined();
+    expect(Finding.parse({ ...baseFinding, in_scope: true }).in_scope).toBe(true);
+    expect(Finding.parse({ ...baseFinding, in_scope: false }).in_scope).toBe(false);
+    expect(Finding.parse({ ...baseFinding, in_scope: null }).in_scope).toBeNull();
+    expect(Finding.parse({ ...baseFinding, kind: 'scope_notice' }).kind).toBe('scope_notice');
+  });
+
+  it('PrIntentRecord round-trips through PrIntentResponse', () => {
+    const record = {
+      pr_id: 'p1',
+      summary: 'Adds per-IP rate limiting.',
+      in_scope: ['Rate limiter middleware'],
+      out_of_scope: ['Billing'],
+      confidence: 'medium' as const,
+      sources: [
+        { kind: 'pr_title' as const, ref: 'pr_title', chars: 20, truncated: false, status: 'used' as const },
+        { kind: 'pr_body' as const, ref: 'pr_body', chars: 0, truncated: false, status: 'empty' as const },
+      ],
+      missing_context: [
+        { url: 'https://linear.app/acme/issue/PAY-12', kind: 'external' as const, reason: 'unsupported_host' as const },
+      ],
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      head_sha: 'abc',
+      input_hash: 'h',
+      usage: { tokens_in: 100, tokens_out: 20, cost_usd: 0.0001 },
+      status: 'ok' as const,
+      error: null,
+      classified_at: '2026-11-27T00:00:00.000Z',
+      updated_at: '2026-11-27T00:00:00.000Z',
+      stale: false,
+    };
+    const parsed = PrIntentRecord.parse(JSON.parse(JSON.stringify(record)));
+    expect(parsed).toEqual(record);
+    expect(PrIntentResponse.parse({ intent: record }).intent).toEqual(record);
+    expect(PrIntentResponse.parse({ intent: null }).intent).toBeNull();
+    expect(PrIntentRecord.safeParse({ ...record, status: 'pending' }).success).toBe(false);
   });
 });

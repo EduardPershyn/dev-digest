@@ -20,6 +20,8 @@ export const FindingKind = z.enum([
   'lethal_trifecta',
   'phantom',
   'hook',
+  /** M3 — the single collapsed notice for out-of-scope CRITICAL findings. */
+  'scope_notice',
 ]);
 export type FindingKind = z.infer<typeof FindingKind>;
 
@@ -56,6 +58,11 @@ export const Finding = z.object({
   suggestion: z.string().nullish(), // markdown
   confidence: z.number().min(0).max(1),
   kind: FindingKind.nullish(),
+  /** M3 — set by the reviewer when a PR intent is in the prompt. */
+  in_scope: z
+    .boolean()
+    .nullish()
+    .describe("false when the finding concerns code/behaviour outside the PR's derived intent"),
   // Lethal-trifecta variant fields (present only when kind === 'lethal_trifecta')
   trifecta_components: z.array(TrifectaComponent).nullish(),
   evidence: z.array(TrifectaEvidence).nullish(),
