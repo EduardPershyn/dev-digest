@@ -53,4 +53,8 @@ _None yet._
 
 ## Open Questions
 
-_None yet._
+- **2026-11-27** — `10-intent.flow.json` uses `find role button hover --name Reclassify` to
+  assert the button exists without clicking it (clicking would make a model call). No other flow
+  uses `hover`, and agent-browser was not installed on this machine, so neither the step nor the
+  flow has been run. If the step fails, replace it with `wait --text Reclassify`.
+  Ref: `e2e/specs/10-intent.flow.json`
