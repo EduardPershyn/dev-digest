@@ -24,3 +24,6 @@ test-results/
 
 # emdash worktree config (local)
 .emdash.json
+
+# Claude Code agent worktrees (isolation: "worktree"), local only
+.claude/worktrees/
