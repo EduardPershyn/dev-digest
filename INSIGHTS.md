@@ -54,6 +54,12 @@ _None yet._
 - **2026-11-25** — From Claude Code's sandboxed shell, `git push`/`fetch` over the ssh remote
   fails ("Permission denied (publickey)"). Pushing over HTTPS with gh's token works:
   `git -c credential.helper= -c credential.helper='!gh auth git-credential' push https://github.com/EduardPershyn/dev-digest.git <branch>`.
+- **2026-11-27** — In `.claude/agents/*.md`, don't rely on `permissionMode` to restrict an
+  agent. It is ignored when the parent session runs in auto / acceptEdits / bypassPermissions.
+  Subagents can also spawn subagents (3 levels) unless `Agent` is removed, and Bash can write
+  files even without Write/Edit. Enforce limits with `tools` / `disallowedTools` plus a
+  `PreToolUse` hook (exit 2 blocks). Ref: https://code.claude.com/docs/en/sub-agents,
+  `.claude/hooks/readonly-bash.sh`
 
 ## Recurring Errors & Fixes
 
@@ -105,6 +111,14 @@ _None yet._
   `exp/skill-history-route`) is in `specs/M2-skills/experiments/README.md`. Verified: seed ≡
   docs via the import parser, server typecheck, 219 unit tests, `skills.it.test.ts`. Not
   run: the LLM experiment, e2e.
+- **2026-11-27** — Added `planner` (read-only) and `implementer` subagents
+  (`.claude/agents/`). Both map paths to skills via `pr-self-review/routing.json`, so the plan
+  names the skills the implementer loads. The planner's Bash is filtered by
+  `.claude/hooks/readonly-bash.sh` (quote-aware allowlist). The implementer's
+  `.claude/hooks/implementer-guard.sh` blocks the CLAUDE.md "Do not touch" paths and
+  git/docker-volume commands. Approved plans are saved to `specs/<spec>/plans/<slug>.md`.
+  Verified: 40 hook cases with sample tool-call JSON, and the frontmatter parses as YAML. Not
+  run: a real planner → implementer pass (the agents load after a session restart).
 
 ## Open Questions
 
