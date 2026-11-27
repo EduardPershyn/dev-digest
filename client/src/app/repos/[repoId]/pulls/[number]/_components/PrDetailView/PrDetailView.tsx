@@ -47,7 +47,8 @@ export function PrDetailView() {
 
   // Live run tracking is SERVER-SOURCED (agent_runs status='running'): survives
   // navigation AND reload, and self-clears via polling when runs finish.
-  const { invalidateActiveRuns, invalidateRunHistory, invalidateIntent } = usePrRunInvalidation(prId);
+  const { invalidateActiveRuns, invalidateRunHistory, invalidateIntent, invalidateSmartDiff } =
+    usePrRunInvalidation(prId);
   const { data: activeRuns } = usePrActiveRuns(prId);
   const { data: prRuns } = usePrRuns(prId);
   const deleteRun = useDeleteRun(prId);
@@ -161,6 +162,7 @@ export function PrDetailView() {
               invalidateActiveRuns();
               invalidateRunHistory();
               invalidateIntent();
+              invalidateSmartDiff();
               refetchReviews();
             }}
           />
@@ -169,7 +171,6 @@ export function PrDetailView() {
         {tab === "diff" && (
           <DiffTab
             prId={prId}
-            filesCount={pr.files_count}
             files={pr.files}
             canComment={pr.status === "open"}
           />
