@@ -16,3 +16,4 @@ runs only `*.flow.json`, so Markdown here is ignored by the runner. Flow format:
 | `07-settings.flow.json` | Settings renders the API Keys and Feature Models sections |
 | `08-skills.flow.json` | Skills grid → side preview → an agent's Skills tab (M2) |
 | `10-intent.flow.json` | PR #482 Agent runs tab → seeded intent card (summary, missing Linear link, model); Settings lists the Intent classifier (M3) |
+| `11-smart-diff.flow.json` | Files changed tab: role groups (Smart order) → Original order (M3) |
