@@ -29,6 +29,8 @@ export function buildReviewService(c: Container): ReviewService {
     repoIntel: c.repoIntel,
     skills: c.skillsRepo,
     tokens: c.tokenizer,
+    // M3 — the shared IntentService satisfies the reviews-owned IntentProvider port.
+    intent: c.intentService,
   });
 }
 

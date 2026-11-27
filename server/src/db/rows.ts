@@ -4,6 +4,7 @@ import type {
   AgentVersionRecord,
   ConventionRecord,
   FindingRecord,
+  IntentRecord,
   PrFileRecord,
   PullRecord,
   RepoRecord,
@@ -32,6 +33,7 @@ export type PrFileRow = typeof t.prFiles.$inferSelect;
 export type SkillRow = typeof t.skills.$inferSelect;
 export type SkillVersionRow = typeof t.skillVersions.$inferSelect;
 export type ConventionRow = typeof t.conventions.$inferSelect;
+export type PrIntentRow = typeof t.prIntent.$inferSelect;
 
 // ---- row ⇔ record drift guard (compile-time only) ---------------------------
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -48,4 +50,5 @@ export type _RowRecordDriftGuard = [
   Assert<Same<SkillRow, SkillRecord>>,
   Assert<Same<SkillVersionRow, SkillVersionRecord>>,
   Assert<Same<ConventionRow, ConventionRecord>>,
+  Assert<Same<PrIntentRow, IntentRecord>>,
 ];

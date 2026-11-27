@@ -18,6 +18,12 @@ a human review step. Entry format:
   together with a temp-dir clone (`repos.clone_path`), because the conventions routes call
   only that method. A review run on the same DB needs a **second** `buildApp` without the
   stub, since the executor calls other `RepoIntel` methods. Ref: `server/test/conventions.it.test.ts`
+- **2026-11-27** — To queue an exact N-agent batch in an integration test, set
+  `agents.enabled = false` for the whole workspace, create the N agents via `POST /agents`, then
+  `POST /pulls/:id/review { all: true }`. Why: `all` runs every enabled agent in the workspace,
+  including the seeded ones on `openrouter`, which in `reviews-intent.it` is the intent-classifier
+  mock, so they would add review calls to that mock and extra runs. `agentId` queues one agent per batch, so it
+  cannot test shared pre-work. Ref: `server/test/reviews-intent.it.test.ts` (`setupTwoAgents`)
 
 ## What Doesn't Work
 
@@ -52,6 +58,12 @@ _None yet._
   `saveRunTrace`, so a test that waits with `waitForPrRuns` and then reads `run_traces`
   can find no row yet. Poll for the trace row after the run is done.
   Ref: `server/src/modules/reviews/run-executor.ts`, `server/test/skills.it.test.ts`
+- **2026-11-27** — `Container.intentService` is ONE cached instance on purpose: the intent
+  routes and the reviews pre-work (via the reviews-owned `IntentProvider` port) must share
+  its per-PR in-flight promise map. Don't build a second `IntentService` in a `routes.ts`.
+  The container has no logger, so the classification log line uses the per-call `log`
+  (`req.log` / the run's logger). Ref: `server/src/platform/container.ts` (`intentService`),
+  `server/src/modules/intent/service.ts`
 
 ## Tool & Library Notes
 
@@ -66,6 +78,11 @@ _None yet._
   alone (`pnpm exec vitest run skills.it`). Likely `dockerAvailable()`'s 5 s `docker info`
   timeout under parallel load (not proven). Run integration files on their own before
   trusting a "skipped". Ref: `server/test/helpers/pg.ts` (`dockerAvailable`)
+- **2026-11-27** — From Claude Code's sandboxed Bash, `docker info` hangs, so every
+  `*.it.test.ts` self-skips ("Docker not available") although Docker works. Run the
+  integration files with the sandbox disabled; then `pnpm exec vitest run intent.it` etc. pass
+  (Testcontainers starts fine). Why: the sandbox blocks `/var/run/docker.sock`.
+  Ref: `server/test/helpers/pg.ts` (`dockerAvailable`)
 
 ## Recurring Errors & Fixes
 
@@ -101,6 +118,16 @@ _None yet._
   /agents/:id/skills` (transactional replace + agent version bump), executor feeds
   `SkillResolver.enabledForAgent` into the engine and adds tiktoken counts to
   `prompt_assembly.skill_blocks`. Seed adds Test Quality + API Contract reviewers and 4 skills.
+- **2026-11-27** — M3 intent layer backend, WI-1..WI-10 of
+  `specs/M3-intent-layer/plans/2026-11-27-intent-layer.md`: `modules/intent`
+  (references / helpers / service / repository / routes), migration `0013_intent_layer`
+  (ADD COLUMN only; drizzle-kit's random file name was renamed together with the journal
+  `tag`), `GitHubClient.getFileContent`, reviews pre-work "Resolving PR intent" +
+  `trace.intent` / `trace.scope_filter` / `prompt_assembly.intent_block`, seeded PR #482
+  intent. Removed the dead `ReviewStore.upsertIntent/getIntent`. Verified: server 265 unit,
+  every `*.it.test.ts` file alone (incl. new `intent.it`, `reviews-intent.it`), typecheck,
+  lint:arch; reviewer-core 54; client typecheck. Not done here: client UI, e2e (WI-11..13),
+  a live DeepSeek call with `require_parameters`.
 
 ## Open Questions
 
@@ -108,3 +135,23 @@ _None yet._
   `waitForPrRuns(db, prId)` (no `expected`) runs until its 10s timeout: the seeded agents
   runs never all reach a terminal status under the mocks. Cause not investigated; that test
   deliberately does not wait. Ref: `server/test/helpers/runs.ts`
+- **2026-11-27** — Since M3 every review of a PR without a fresh intent asks the
+  `review_intent` model (default **openrouter**) first. `loadConfig` loads `server/.env` via
+  `dotenv`, and `LocalSecretsProvider` falls back to `process.env`, so an integration test that
+  runs a review WITHOUT `overrides.llm.openrouter` would make a real, paid OpenRouter call when
+  `server/.env` has a key. The M3 run executed the IT files with `OPENROUTER_API_KEY=` (intent
+  then fails with ConfigError and the review proceeds). Decide whether the test config should
+  blank provider keys. Ref: `server/src/platform/config.ts:1`, `server/test/skills.it.test.ts`
+- **2026-11-27** — Answers the question above. Tests now build the app with `buildTestApp` from
+  `test/helpers/app.ts`, never `buildApp` from `../src/app.js`. It defaults
+  `overrides.secrets` to an empty `MockSecretsProvider`, so a provider or GitHub client a test
+  didn't inject fails with `ConfigError`. Without it, the test would use the real key from
+  `server/.env` or `~/.devdigest/secrets.json`. `test/hermetic-app.test.ts` fails if a test file
+  imports the raw `buildApp`. Pass your own `secrets`/`llm` when a test needs a key or model.
+  Still open: whether `loadConfig`/the container should refuse real keys when `NODE_ENV=test`.
+  Ref: `server/test/helpers/app.ts`
+- **2026-11-27** — `splitBlobRef` rejects only WHOLE `..` segments, but `classifyUrl` decodes
+  each segment AFTER splitting on `/`, so `…/blob/main/docs%2F..%2F..%2Fsecret.md` yields path
+  `docs/../../secret.md` (verified with a throwaway test). WHATWG `URL` already collapses
+  `%2e%2e` segments, so the encoded slash is the only way in. Unfixed; the read stays in the same
+  repo. Ref: `server/src/modules/intent/references.ts:102` (`safeDecode`), `:213`

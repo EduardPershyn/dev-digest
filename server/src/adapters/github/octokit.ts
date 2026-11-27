@@ -11,10 +11,45 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  GitHubFileContent,
 } from '@devdigest/shared';
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
+
+/** M3 — byte cap for `getFileContent` (contents API reads of linked docs). */
+export const MAX_FILE_CONTENT_BYTES = 200_000;
+
+/** The subset of a contents-API response `mapFileContent` reads. */
+export interface ContentsPayload {
+  type?: string;
+  size?: number;
+  sha?: string;
+  encoding?: string;
+  content?: string;
+}
+
+/**
+ * Map a contents-API payload to a typed result (pure, exported for tests).
+ * Arrays (directories), symlinks and submodules → `not_found`; over the byte
+ * cap → `too_large`; a NUL byte in the decoded text → `binary`.
+ */
+export function mapFileContent(data: ContentsPayload | ContentsPayload[]): GitHubFileContent {
+  if (Array.isArray(data) || data.type !== 'file') return { status: 'not_found' };
+  const size = data.size ?? 0;
+  if (size > MAX_FILE_CONTENT_BYTES) return { status: 'too_large' };
+  // Files over 1 MB come back with encoding "none" and no content.
+  if (data.encoding !== 'base64' || typeof data.content !== 'string') return { status: 'too_large' };
+  const bytes = Buffer.from(data.content, 'base64');
+  if (bytes.length > MAX_FILE_CONTENT_BYTES) return { status: 'too_large' };
+  if (bytes.includes(0)) return { status: 'binary' };
+  return { status: 'ok', text: bytes.toString('utf8'), sha: data.sha ?? '', size: bytes.length };
+}
+
+function httpStatus(err: unknown): number | undefined {
+  const status = (err as { status?: unknown })?.status;
+  return typeof status === 'number' ? status : undefined;
+}
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -361,6 +396,27 @@ export class OctokitGitHubClient implements GitHubClient {
       body: res.data.body,
       state: res.data.state,
     };
+  }
+
+  /**
+   * M3 — read one repo file at `ref` (contents API). 404 → `not_found`,
+   * 403 → `forbidden`; other errors (5xx after retries, timeouts) are thrown.
+   */
+  async getFileContent(repo: RepoRef, path: string, ref: string): Promise<GitHubFileContent> {
+    try {
+      const res = await withRetry(() =>
+        withTimeout(
+          this.octokit.rest.repos.getContent({ owner: repo.owner, repo: repo.name, path, ref }),
+          TIMEOUT,
+        ),
+      );
+      return mapFileContent(res.data as ContentsPayload | ContentsPayload[]);
+    } catch (err) {
+      const status = httpStatus(err);
+      if (status === 404) return { status: 'not_found' };
+      if (status === 403) return { status: 'forbidden' };
+      throw err;
+    }
   }
 
   async currentLogin(): Promise<string> {

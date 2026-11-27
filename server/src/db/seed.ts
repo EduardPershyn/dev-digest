@@ -10,6 +10,7 @@ import {
   API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 import { SEED_AGENT_SKILLS, SEED_SKILLS } from './seed-skills.js';
+import { intentInputHash } from '../modules/intent/helpers.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -24,7 +25,7 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  * with a few findings, the built-in agents (General + Security + Performance,
  * plus the M2 Test Quality + API Contract reviewers), all on the default
  * openrouter/deepseek-v4-flash provider+model, and the M2 built-in skills
- * linked to the two M2 agents.
+ * linked to the two M2 agents, and the M3 intent of PR #482.
  *
  * Later milestones populate the other tables (conventions, memory, eval, …)
  * once their features are built — they start empty here.
@@ -179,6 +180,39 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       },
     ]);
   }
+
+  // ---- M3: a classified intent for PR #482 (specs/M3-intent-layer.md) ----
+  // Fresh against the seeded row (same head sha + input hash), so the intent
+  // card renders and a review reuses it without a model call. One Linear link
+  // shows the "missing context" path. Never overwrites a real classification.
+  await db
+    .insert(t.prIntent)
+    .values({
+      prId: pr!.id,
+      summary: 'Adds per-IP rate limiting to the public API endpoints.',
+      inScope: ['Rate limiter middleware', 'Public API route config'],
+      outOfScope: ['Authentication', 'Billing'],
+      confidence: 'medium',
+      sources: [
+        { kind: 'pr_title', ref: 'pr_title', chars: pr!.title.length, truncated: false, status: 'used' },
+        { kind: 'pr_body', ref: 'pr_body', chars: (pr!.body ?? '').length, truncated: false, status: 'used' },
+        { kind: 'changed_files', ref: 'changed_files', chars: 120, truncated: false, status: 'used' },
+      ],
+      missingContext: [
+        { url: 'https://linear.app/acme/issue/PAY-12', kind: 'external', reason: 'unsupported_host' },
+      ],
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      headSha: pr!.headSha,
+      inputHash: intentInputHash(pr!),
+      tokensIn: 812,
+      tokensOut: 96,
+      costUsd: 0.00021,
+      status: 'ok',
+      error: null,
+      classifiedAt: new Date('2026-06-01T03:05:00Z'),
+    })
+    .onConflictDoNothing({ target: t.prIntent.prId });
 
   // ---- built-in agents (the three starter presets) ----
   // Prompt bodies live in ./seed-prompts.ts (mirrored in docs/agent-prompts/*.md).

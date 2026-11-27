@@ -17,6 +17,7 @@ import type {
   OpenPrPayload,
   CommitFilesPayload,
   IssueMeta,
+  GitHubFileContent,
   GitClient,
   CloneOptions,
   UnifiedDiff,
@@ -125,6 +126,13 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /**
+   * M3 — files served by getFileContent, keyed by `ref:path` (exact ref) or
+   * `path` (any ref). Unknown paths → `not_found`.
+   */
+  files?: Record<string, string | 'forbidden' | 'not_found' | 'too_large' | 'binary'>;
+  /** M3 — per-number getIssue results; `'not_found'`/`'forbidden'` throw with that HTTP status. */
+  issues?: Record<number, IssueMeta | 'not_found' | 'forbidden'>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -132,6 +140,10 @@ export class MockGitHubClient implements GitHubClient {
   public openedPrs: OpenPrPayload[] = [];
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
+  /** M3 — every getFileContent call, in order. */
+  public fileReads: { path: string; ref: string }[] = [];
+  /** M3 — every getIssue call, in order. */
+  public issueReads: number[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -231,7 +243,22 @@ export class MockGitHubClient implements GitHubClient {
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
-    return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+    this.issueReads.push(n);
+    const hit = this.opts.issues?.[n];
+    if (hit === 'not_found' || hit === 'forbidden') {
+      throw Object.assign(new Error(`mock issue #${n}: ${hit}`), {
+        status: hit === 'not_found' ? 404 : 403,
+      });
+    }
+    return hit ?? { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async getFileContent(_repo: RepoRef, path: string, ref: string): Promise<GitHubFileContent> {
+    this.fileReads.push({ path, ref });
+    const hit = this.opts.files?.[`${ref}:${path}`] ?? this.opts.files?.[path];
+    if (hit === undefined || hit === 'not_found') return { status: 'not_found' };
+    if (hit === 'forbidden' || hit === 'too_large' || hit === 'binary') return { status: hit };
+    return { status: 'ok', text: hit, sha: `sha-${path}`, size: Buffer.byteLength(hit) };
   }
 
   async currentLogin(): Promise<string> {

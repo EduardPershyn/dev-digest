@@ -36,6 +36,12 @@ import type { SourceParser } from '../modules/repo-intel/ports.js';
 import { astGrepSourceParser } from '../adapters/astgrep/source-parser.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
+import { IntentService } from '../modules/intent/service.js';
+import { IntentRepository } from '../modules/intent/repository.js';
+import { SYSTEM_PROMPT_TEMPLATE as INTENT_SYSTEM_PROMPT } from '../modules/intent/constants.js';
+import { loadDiff } from '../modules/reviews/diff-loader.js';
+import { resolveFeatureModel } from '../modules/settings/feature-models.js';
+import { loadPromptTemplate } from './prompts.js';
 
 /**
  * DI container. One per app instance. Holds config, db, the JobRunner,
@@ -86,6 +92,7 @@ export class Container {
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
+  private _intentService?: IntentService;
 
   constructor(config: AppConfig, db: Db, private overrides: ContainerOverrides = {}) {
     this.config = config;
@@ -164,6 +171,28 @@ export class Container {
   /** AST + regex source analysis for the repo-intel indexer (pure, in-process). */
   get sourceParser(): SourceParser {
     return astGrepSourceParser;
+  }
+
+  /**
+   * M3 — the PR intent classifier. ONE shared instance (cached) so the intent
+   * routes and the reviews pre-work (through its `IntentProvider` port) share
+   * the per-PR in-flight dedupe.
+   */
+  get intentService(): IntentService {
+    this._intentService ??= new IntentService({
+      store: new IntentRepository(this.db),
+      changedFiles: { diff: (pull, repo) => loadDiff(this.git, this.reviewRepo, pull, repo) },
+      docs: { github: () => this.github() },
+      model: {
+        resolve: async (workspaceId) => {
+          const choice = await resolveFeatureModel(this.settingsRepo, workspaceId, 'review_intent');
+          return { llm: await this.llm(choice.provider), provider: choice.provider, model: choice.model };
+        },
+      },
+      tokens: this.tokenizer,
+      systemPrompt: () => loadPromptTemplate(INTENT_SYSTEM_PROMPT),
+    });
+    return this._intentService;
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */
