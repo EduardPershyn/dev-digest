@@ -71,6 +71,7 @@ flowchart TB
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
     intent["intent (M3)<br/>/pulls/:id/intent · /intent/classify"]
+    smartDiff["smart-diff (M3)<br/>/pulls/:id/smart-diff"]
   end
   subgraph Agents["Agents & skills"]
     agents["agents<br/>/agents · /agents/:id · /agents/:id/skills"]
@@ -338,6 +339,27 @@ severity then confidence, `rationale` flattened and cut to 220 chars. Only the *
 review of each agent** counts (re-runs replace, different agents add up; legacy
 `agent_id = null` reviews form one group), and dismissed findings are excluded. Computed
 on read in `src/modules/pulls/findings-summary.ts`. Spec: `../specs/pr-list-findings.md`.
+
+## Smart Diff (M3)
+
+`GET /pulls/:id/smart-diff` → `SmartDiffResponse`: the PR's files grouped by role, with the
+lines that carry review findings. **No model call** — the service has no LLM port at all —
+and it works before the first review (every `finding_lines` is `[]`). An unknown PR, or one
+outside the caller's workspace, is a 404.
+
+- **Classifier:** pure `classifyFile(path)` in `src/modules/smart-diff/helpers.ts`; the
+  patterns and the role order live in `src/modules/smart-diff/constants.ts`. Rules are
+  evaluated first match wins: boilerplate → tests → wiring → docs, anything else is `core`.
+- **Display order:** `core → tests → wiring → docs → boilerplate`; empty groups are omitted
+  and files keep GitHub order inside a group.
+- **Findings:** the latest `kind: 'review'` review of each agent (by `created_at`; legacy
+  `agent_id = null` reviews form one group), union of their findings — the same per-agent
+  rule as PR-list findings plus the `kind` filter. Dismissed findings are excluded from
+  `finding_lines` (sorted, unique `start_line`s per file).
+- **`split_suggestion`** is minimal: `{ too_big: false, total_lines: Σ(additions + deletions),
+  proposed_splits: [] }`; `pseudocode_summary` is not set.
+
+Spec: `../specs/M3-smart-diff.md`.
 
 ## Testing
 
