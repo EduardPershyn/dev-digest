@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
+import { buildTestApp as buildApp } from './helpers/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { MockGitHubClient, MockLLMProvider } from '../src/adapters/mocks.js';
 

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { Review, RunTrace } from '@devdigest/shared';
 import { startPg, dockerAvailable, type PgFixture } from './helpers/pg.js';
 import { waitForPrRuns } from './helpers/runs.js';
-import { buildApp } from '../src/app.js';
+import { buildTestApp as buildApp } from './helpers/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';

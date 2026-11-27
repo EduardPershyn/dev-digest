@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../src/app.js';
+import { buildTestApp as buildApp } from './helpers/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { hostnameOf, isAllowedHost, isAllowedOrigin } from '../src/platform/local-only.js';
 
