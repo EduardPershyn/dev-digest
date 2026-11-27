@@ -38,7 +38,8 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.9 · Fastify 5 · Drizzle 0.45 · Postg
 - Before working in a module → that module's `INSIGHTS.md` (here: cross-module lessons)
 - Editing the built-in reviewer prompts → `docs/agent-prompts/README.md`
 - Delegating planning, implementation, tests, plan verification, architecture review or docs
-  to a subagent → `.claude/agents/README.md`
+  to a subagent → `.claude/agents/README.md`, following its **Order of steps** (research → user
+  decisions → planner; no parallel runs where one output feeds the other)
 - User asks whether a branch is ready to merge → `/pr-self-review` (manual only; adding a skill
   means adding it to `.claude/skills/pr-self-review/routing.json`)
 - You confirmed something non-obvious, or are wrapping up a task → `engineering-insights`

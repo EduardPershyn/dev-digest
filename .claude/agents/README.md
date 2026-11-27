@@ -43,8 +43,24 @@ request / spec ─► planner ─► Development Plan ─► user approves ─�
                                                 ▼
                         doc-writer ─► /pr-self-review ─► user commits
 
-researcher: on demand, at any step (e.g. "how does X work?" before planning)
+researcher: on demand (e.g. "how does X work?"); before planning, it runs BEFORE the planner
 ```
+
+### Order of steps (main session)
+1. **researcher**, if external facts or best practices are needed. Wait for its report.
+2. **Ask the user** the open design questions, informed by the research. Don't start planning
+   while a decision that shapes the plan is still open.
+3. **planner**, once, with one self-contained brief: request, the user's decisions, the
+   research findings and known `file:line` facts. Don't feed it decisions later through a resume.
+4. **Save the plan exactly as the planner returned it** (all 8 sections). Don't condense it:
+   the implementer's Step 0 rejects a plan with missing sections.
+5. implementer → test-writer → (plan-verifier ∥ architecture-reviewer) → doc-writer.
+
+**Parallel only when neither output changes the other's input**, e.g. plan-verifier ∥
+architecture-reviewer, or doc-writer ∥ plan-verifier. Never run researcher ∥ planner, and never
+start the planner before the user's decisions are in. In M3 (2026-11-27), running researcher ∥
+planner before the user had answered made the planner re-read the researcher's files and
+explore questions the user then decided. It hit its turn limit without a plan.
 
 The planner, implementer and test-writer share one rule source. All three map file paths to
 skills through [`../skills/pr-self-review/routing.json`](../skills/pr-self-review/routing.json)

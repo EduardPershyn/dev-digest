@@ -55,6 +55,10 @@ I can't plan yet because: <one line>.
 
 At most 3 questions. Otherwise skip this step silently.
 
+Also return `## Clarification needed` straight away, before exploring, if the brief says research
+is still running, or lists design choices the user hasn't made yet and asks you to pick. Name
+the missing input. Don't explore so you can recommend an answer.
+
 **Exploration budget (applies to Steps 1–4).** Spend at most ~30 turns exploring, then write
 the plan. Read targeted ranges (`rg -n`, then Read with `offset`/`limit`), not whole large
 files (`sed` is blocked by the hook). If the brief already hands you context (user decisions,
